@@ -1,3 +1,4 @@
+import os
 import random
 from collections import OrderedDict
 from docx import Document
@@ -9,6 +10,7 @@ from docx.shared import RGBColor, Pt, Cm, Inches
 from docx.oxml import OxmlElement
 from faker import Faker
 import os
+import matplotlib.pyplot as plt
 
 # Инициализация Faker
 locales = OrderedDict([
@@ -24,6 +26,10 @@ images_folder = 'natural_images'
 if not os.path.exists('docx'):
     os.makedirs('docx')
 
+# Создаем папку для сохранения формул
+if not os.path.exists('equations'):
+    os.makedirs('equations')
+
 num_documents = 10  # Количество документов для генерации
 
 # Список цветов в формате HEX
@@ -38,6 +44,102 @@ E6E6FA E9967A EE82EE EEE8AA F08080 F0E68C F0F8FF F0FFF0 F0FFFF F4A460 F5DEB3 F5F
 F5FFFA F8F8FF FA8072 FAEBD7 FAF0E6 FAFAD2 FDF5E6 FF0000 FF00FF FF00FF FF1493 FF4500 FF6347 
 FF69B4 FF7F50 FF8C00 FFA07A FFA500 FFB6C1 FFC0CB FFD700 FFDAB9 FFDEAD FFE4B5 FFE4C4 FFE4E1 
 FFEBCD FFEFD5 FFF0F5 FFF5EE FFF8DC FFFACD FFFAF0 FFFAFA FFFF00 FFFFE0 FFFFF0 FFFFFF"""
+# Список LaTeX-формул
+FORMULAS = [
+    r"E = mc^2",
+    r"\int_{a}^{b} f(x)\,dx",
+    r"\frac{d}{dx}\left( e^x \right) = e^x",
+    r"\sum_{n=1}^{\infty} \frac{1}{n^2} = \frac{\pi^2}{6}",
+    r"\lim_{x \to 0} \frac{\sin x}{x} = 1",
+    r"a^2 + b^2 = c^2",
+    r"\nabla \cdot \mathbf{E} = \frac{\rho}{\varepsilon_0}",
+    r"f(x) = \frac{1}{\sqrt{2\pi\sigma^2}} e^{-\frac{(x-\mu)^2}{2\sigma^2}}",
+    r"i\hbar \frac{\partial}{\partial t}\Psi = \hat{H}\Psi",
+    r"e^{i\theta} = \cos \theta + i \sin \theta",
+    r"\frac{\partial^2 u}{\partial t^2} = c^2 \nabla^2 u",
+    r"\alpha + \beta = \gamma",
+    r"\sqrt{a^2 + b^2 + c^2}",
+    r"\frac{1}{1 + e^{-x}}",
+    r"x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}",
+    r"\mathbf{F} = m\mathbf{a}",
+    r"PV = nRT",
+    r"\frac{\partial u}{\partial t} + \mathbf{v} \cdot \nabla u = D \nabla^2 u",
+    r"\sigma = \frac{F}{A}",
+    r"\tau = r \times F"
+]
+
+def generate_equation_image(equation_str, output_dir='equations'):
+    """
+    Генерирует изображение формулы из LaTeX-строки и сохраняет его.
+    
+    :param equation_str: Строка LaTeX-формулы.
+    :param output_dir: Директория для сохранения изображений формул.
+    :return: Путь к сохранённому изображению формулы.
+    """
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    
+    # Генерируем уникальное имя файла
+    filename = f"equation_{random.randint(1000, 9999)}.png"
+    filepath = os.path.join(output_dir, filename)
+    
+    # Создаём изображение формулы
+    plt.figure(figsize=(3, 1))
+    plt.text(0.5, 0.5, f"${equation_str}$", fontsize=20, ha='center', va='center')
+    plt.axis('off')
+    plt.savefig(filepath, bbox_inches='tight', pad_inches=0.1)
+    plt.close()
+    
+    return filepath
+
+def add_equation_to_docx(doc, equation_str, caption=True):
+    """
+    Генерирует изображение формулы и добавляет его в документ.
+    
+    :param doc: Объект документа Document.
+    :param equation_str: Строка LaTeX-формулы.
+    :param caption: Добавлять ли подпись к формуле.
+    """
+    equation_image_path = generate_equation_image(equation_str)
+    try:
+        doc.add_picture(equation_image_path, width=Inches(4))
+        if caption:
+            caption_text = f"Формула {random.randint(1, 100)} — {fake.sentence(nb_words=random.randint(3, 7))}"
+            caption_paragraph = doc.add_paragraph(caption_text)
+            caption_paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            run = caption_paragraph.runs[0]
+            run.font.size = Pt(random.randint(10, 12))
+    except Exception as e:
+        print(f"Ошибка при добавлении формулы: {e}")
+
+def add_footnote(paragraph, footnote_text, footnote_num, footnotes):
+    """
+    Добавляет сноску в абзац и сохраняет её текст.
+    
+    :param paragraph: Объект абзаца.
+    :param footnote_text: Текст сноски.
+    :param footnote_num: Номер сноски.
+    :param footnotes: Список сносок.
+    """
+    footnote_mark = paragraph.add_run(f'[{footnote_num}]')
+    footnote_mark.font.superscript = True
+    footnotes.append((footnote_num, footnote_text))
+
+def add_footnotes_section(document, footnotes):
+    """
+    Добавляет раздел с примечаниями (сносками) в конец документа.
+    
+    :param document: Объект документа Document.
+    :param footnotes: Список сносок.
+    """
+    if footnotes:
+        document.add_page_break()
+        footnote_heading = document.add_paragraph('Примечания')
+        footnote_heading.style = 'Heading 1'
+        for num, text in footnotes:
+            footnote_paragraph = document.add_paragraph()
+            footnote_run = footnote_paragraph.add_run(f'[{num}] {text}')
+            footnote_run.font.size = Pt(8)
 
 colors_list = COLORS.split()
 
@@ -58,7 +160,6 @@ def set_table_borders(table, include_borders=True):
             border.set(qn('w:space'), '0')
             border.set(qn('w:color'), '000000')
             tblBorders.append(border)
-
         tblPr.append(tblBorders)
     else:
         # Удаляем границы, если они есть
@@ -66,7 +167,12 @@ def set_table_borders(table, include_borders=True):
             tblPr.remove(element)
 
 for doc_num in range(num_documents):
+
     document = Document()
+
+    # Инициализация списка сносок
+    footnotes = []
+    footnote_num = 1  # Начальный номер сноски
 
     # Случайное количество разделов в документе
     num_sections = random.randint(1, 5)
@@ -115,7 +221,7 @@ for doc_num in range(num_documents):
         run.font.size = Pt(random.randint(14, 24))
         heading.alignment = WD_ALIGN_PARAGRAPH.CENTER if random.choice([True, False]) else WD_ALIGN_PARAGRAPH.LEFT
 
-        # Добавляем абзац текста
+        # Добавляем абзац текста с возможными сносками
         paragraph = document.add_paragraph(fake.text(max_nb_chars=random.randint(500, 1000)))
         paragraph_format = paragraph.paragraph_format
         paragraph_format.first_line_indent = Cm(1) if random.choice([True, False]) else None
@@ -125,8 +231,22 @@ for doc_num in range(num_documents):
             WD_ALIGN_PARAGRAPH.RIGHT,
             WD_ALIGN_PARAGRAPH.JUSTIFY
         ])
-        run = paragraph.runs[0]
-        run.font.size = Pt(random.randint(8, 16))
+
+        # Разбиваем текст на предложения
+        sentences = paragraph.text.split('. ')
+        paragraph.text = ''  # Очищаем текст абзаца для повторного заполнения
+        for sentence in sentences:
+            if sentence.strip() == '':
+                continue
+            run = paragraph.add_run(sentence + '. ')
+            run.font.size = Pt(random.randint(8, 16))
+            run.font.name = 'Times New Roman'
+            
+            # Случайно добавляем сноску
+            if random.choice([True, False, False]):  # Увеличиваем вероятность добавления сносок
+                footnote_text = fake.sentence(nb_words=5)
+                add_footnote(paragraph, footnote_text, footnote_num, footnotes)
+                footnote_num += 1
 
         # Добавляем подпись к таблице
         caption_text = f"Таблица {random.randint(1, 100)} — {fake.sentence(nb_words=random.randint(3, 7))}"
@@ -209,10 +329,13 @@ for doc_num in range(num_documents):
                     cell.paragraphs[0].alignment = alignment
 
         # Добавляем изображение с подписью
-        image_files = os.listdir(images_folder)
+        image_files = os.listdir(images_folder) if os.path.exists(images_folder) else []
         if image_files:
             image_path = os.path.join(images_folder, random.choice(image_files))
-            document.add_picture(image_path, width=Inches(4))
+            try:
+                document.add_picture(image_path, width=Inches(4))
+            except Exception as e:
+                print(f"Ошибка при добавлении изображения: {e}")
 
             caption_text = f"Рисунок {random.randint(1, 100)} — {fake.sentence(nb_words=random.randint(3, 7))}"
             caption_paragraph = document.add_paragraph(caption_text)
@@ -222,19 +345,27 @@ for doc_num in range(num_documents):
 
         # Добавляем нумерованный список
         for _ in range(random.randint(3, 7)):
-            paragraph = document.add_paragraph(fake.sentence(nb_words=random.randint(5, 15)), style='List Number')
+            list_item = fake.sentence(nb_words=random.randint(5, 15))
+            paragraph = document.add_paragraph(list_item, style='List Number')
             paragraph_format = paragraph.paragraph_format
             paragraph_format.left_indent = Cm(1)
             paragraph_format.line_spacing = random.uniform(1.0, 1.5)
+            run = paragraph.runs[0]
+            run.font.size = Pt(random.randint(8, 16))
+            run.font.name = 'Times New Roman'
 
         # Добавляем маркированный список
         for _ in range(random.randint(3, 7)):
-            paragraph = document.add_paragraph(fake.sentence(nb_words=random.randint(5, 15)), style='List Bullet')
+            list_item = fake.sentence(nb_words=random.randint(5, 15))
+            paragraph = document.add_paragraph(list_item, style='List Bullet')
             paragraph_format = paragraph.paragraph_format
             paragraph_format.left_indent = Cm(1)
             paragraph_format.line_spacing = random.uniform(1.0, 1.5)
+            run = paragraph.runs[0]
+            run.font.size = Pt(random.randint(8, 16))
+            run.font.name = 'Times New Roman'
 
-        # Добавляем дополнительный абзац
+        # Добавляем дополнительный абзац с возможными сносками
         paragraph = document.add_paragraph(fake.text(max_nb_chars=random.randint(500, 1000)))
         paragraph_format = paragraph.paragraph_format
         paragraph_format.first_line_indent = Cm(1) if random.choice([True, False]) else None
@@ -244,8 +375,29 @@ for doc_num in range(num_documents):
             WD_ALIGN_PARAGRAPH.RIGHT,
             WD_ALIGN_PARAGRAPH.JUSTIFY
         ])
-        run = paragraph.runs[0]
-        run.font.size = Pt(random.randint(8, 16))
+        sentences = paragraph.text.split('. ')
+        paragraph.text = ''
+        for sentence in sentences:
+            if sentence.strip() == '':
+                continue
+            run = paragraph.add_run(sentence + '. ')
+            run.font.size = Pt(random.randint(8, 16))
+            run.font.name = 'Times New Roman'
+            
+            # Случайно добавляем сноску
+            if random.choice([True, False, False]):  # Увеличиваем вероятность добавления сносок
+                footnote_text = fake.sentence(nb_words=5)
+                add_footnote(paragraph, footnote_text, footnote_num, footnotes)
+                footnote_num += 1
+
+        # Добавляем формулу с возможной подписью
+        if random.choice([True, False]):
+            equation_str = random.choice(FORMULAS)
+            add_equation_to_docx(document, equation_str, caption=True)
+
+    # Добавляем сноски в конец документа
+    add_footnotes_section(document, footnotes)
 
     # Сохраняем документ в папку 'docx'
-    document.save(f'docx/demo_{doc_num}.docx')
+    document.save(f'docx/document_{doc_num}.docx')
+    print(f"Документ {doc_num} успешно сгенерирован.")
