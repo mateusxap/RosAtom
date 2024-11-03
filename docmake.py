@@ -370,7 +370,7 @@ for doc_num in range(num_documents):
             run.font.size = Pt(random.randint(8, 16))
             run.font.name = 'Times New Roman'
 
-        # Добавляем дополнительный абзац с возможными сносками
+        # Добавляем абзац текста с возможными сносками
         paragraph = document.add_paragraph(fake.text(max_nb_chars=random.randint(500, 1000)))
         paragraph_format = paragraph.paragraph_format
         paragraph_format.first_line_indent = Cm(1) if random.choice([True, False]) else None
@@ -380,15 +380,20 @@ for doc_num in range(num_documents):
             WD_ALIGN_PARAGRAPH.RIGHT,
             WD_ALIGN_PARAGRAPH.JUSTIFY
         ])
+
+        # Выбираем единый размер шрифта для всего абзаца
+        font_size = Pt(random.randint(8, 16))
+
+        # Разбиваем текст на предложения
         sentences = paragraph.text.split('. ')
-        paragraph.text = ''
+        paragraph.text = ''  # Очищаем текст абзаца для повторного заполнения
         for sentence in sentences:
             if sentence.strip() == '':
                 continue
             run = paragraph.add_run(sentence + '. ')
-            run.font.size = Pt(random.randint(8, 16))
+            run.font.size = font_size  # Применяем единый размер шрифта
             run.font.name = 'Times New Roman'
-            
+
             # Случайно добавляем сноску
             if random.choice([True, False, False]):  # Увеличиваем вероятность добавления сносок
                 footnote_text = fake.sentence(nb_words=5)
