@@ -220,11 +220,15 @@ for doc_num in range(num_documents):
         run = heading.runs[0]
         run.font.bold = random.choice([True, False])
         run.font.italic = random.choice([True, False])
-        run.font.size = Pt(random.randint(14, 24))
+        heading_size = random.randint(14, 24)
+        run.font.size = Pt(heading_size)
         heading.alignment = WD_ALIGN_PARAGRAPH.CENTER if random.choice([True, False]) else WD_ALIGN_PARAGRAPH.LEFT
 
         # Добавляем абзац текста с возможными сносками
         paragraph = document.add_paragraph(fake.text(max_nb_chars=random.randint(500, 1000)))
+        # Выбираем размер шрифта для основного текста (как минимум на 2 пункта меньше заголовка)
+        max_text_size = heading_size - 2
+        font_size = Pt(random.randint(8, min(max_text_size, 16)))
         paragraph_format = paragraph.paragraph_format
         paragraph_format.first_line_indent = Cm(1) if random.choice([True, False]) else None
         paragraph_format.alignment = random.choice([
