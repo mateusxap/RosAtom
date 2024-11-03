@@ -22,7 +22,7 @@ def extract_images_from_pdf():
             pages = convert_from_path(pdf_path, dpi=300)  # dpi=300 для высокого качества
 
             for page_number, page in enumerate(pages, start=1):
-                image_name = f"{pdf_name}_{page_number}.png"
+                image_name = f"{pdf_name}_page_{page_number}.png"
                 image_path = os.path.join(image_dir, image_name)
                 page.save(image_path, 'PNG')
                 print(f'Изображение {image_name} сохранено.')
