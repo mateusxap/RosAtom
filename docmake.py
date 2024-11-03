@@ -228,7 +228,7 @@ for doc_num in range(num_documents):
         paragraph = document.add_paragraph(fake.text(max_nb_chars=random.randint(500, 1000)))
         # Выбираем размер шрифта для основного текста (как минимум на 2 пункта меньше заголовка)
         max_text_size = heading_size - 2
-        font_size = Pt(random.randint(8, min(max_text_size, 16)))
+        font_size = Pt(random.randint(8, heading_size-2))
         paragraph_format = paragraph.paragraph_format
         paragraph_format.first_line_indent = Cm(1) if random.choice([True, False]) else None
         paragraph_format.alignment = random.choice([
@@ -239,7 +239,7 @@ for doc_num in range(num_documents):
         ])
 
         # Выбираем единый размер шрифта для всего абзаца
-        font_size = Pt(random.randint(8, 16))
+        font_size = Pt(random.randint(8, heading_size-2))
 
         # Разбиваем текст на предложения
         sentences = paragraph.text.split('. ')
@@ -386,7 +386,7 @@ for doc_num in range(num_documents):
         ])
 
         # Выбираем единый размер шрифта для всего абзаца
-        font_size = Pt(random.randint(8, 16))
+        font_size = Pt(random.randint(8, heading_size-2))
 
         # Разбиваем текст на предложения
         sentences = paragraph.text.split('. ')
