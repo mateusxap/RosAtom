@@ -94,7 +94,7 @@ def generate_equation_image(equation_str, output_dir='equations'):
 
 def add_equation_to_docx(doc, equation_str, caption=True):
     """
-    Генерирует изображение формулы и добавляет его в документ.
+    Генерирует изображение формулы и добавляет его в документ с подписью "Формула" белым цветом.
     
     :param doc: Объект документа Document.
     :param equation_str: Строка LaTeX-формулы.
@@ -104,13 +104,15 @@ def add_equation_to_docx(doc, equation_str, caption=True):
     try:
         doc.add_picture(equation_image_path, width=Inches(4))
         if caption:
-            caption_text = f"Формула {random.randint(1, 100)} — {fake.sentence(nb_words=random.randint(3, 7))}"
-            caption_paragraph = doc.add_paragraph(caption_text)
+            # Создаем подпись с текстом "Формула"
+            caption_paragraph = doc.add_paragraph("Формула")
             caption_paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
             run = caption_paragraph.runs[0]
-            run.font.size = Pt(random.randint(10, 12))
+            run.font.size = Pt(10)  # Размер шрифта можно изменить при необходимости
+            run.font.color.rgb = RGBColor(255, 255, 255)  # Белый цвет шрифта
     except Exception as e:
         print(f"Ошибка при добавлении формулы: {e}")
+
 
 def add_footnote(paragraph, footnote_text, footnote_num, footnotes):
     """
