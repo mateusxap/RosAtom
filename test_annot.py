@@ -139,22 +139,22 @@ def extract_annotations_from_pdf(pdf_path, output_dir='json'):
                 idx += 1
                 continue
 
-            # Проверка на начало раздела сносок
-            if re.match(r'^\s*примечани[ея]', text.lower()):
-                in_footnote_section = True
-                idx += 1
-                continue
-
             # Обработка сносок в тексте
-            footnote_matches = re.findall(r'\[\d+\]', text)
+            footnote_matches = re.finditer(r'\[\d+\]', text)
+            x0_br = y0_br = x1_br = y1_br = 0
             for match in footnote_matches:
-                annotations['footnote'].append(coords_transformed)
-
-            # Обработка раздела сносок
-            if in_footnote_section:
-                annotations['footnote'].append(coords_transformed)
-                idx += 1
-                continue
+                start, end = match.span()
+                for idxx, char in enumerate(text_line):
+                    if start <= idxx < end:
+                        if isinstance(char, LTChar):
+                            char_text = char.get_text()
+                            if char_text == '[':
+                                x0_br = char.bbox[0] * SCALING_FACTOR
+                                y0_br = page_height - char.bbox[3] * SCALING_FACTOR
+                            if char_text == ']':
+                                x1_br = char.bbox[2] * SCALING_FACTOR
+                                y1_br = page_height - char.bbox[1] * SCALING_FACTOR
+                                annotations['footnote'].append([x0_br, y0_br, x1_br, y1_br])                                                      
 
             # Обработка нумерованных списков
             numbered_match = re.match(r'^\s*\d+[\.\)]\s+', text)
