@@ -9,7 +9,6 @@ from docx.oxml.ns import qn
 from docx.shared import RGBColor, Pt, Cm, Inches
 from docx.oxml import OxmlElement
 from faker import Faker
-import os
 import matplotlib.pyplot as plt
 
 # Инициализация Faker
@@ -68,48 +67,56 @@ FORMULAS = [
     r"\tau = r \times F"
 ]
 
+
 def generate_equation_image(equation_str, output_dir='equations'):
     """
     Генерирует изображение формулы из LaTeX-строки и сохраняет его.
-    
+
     :param equation_str: Строка LaTeX-формулы.
     :param output_dir: Директория для сохранения изображений формул.
     :return: Путь к сохранённому изображению формулы.
     """
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
-    
+
     # Генерируем уникальное имя файла
     filename = f"equation_{random.randint(1000, 9999)}.png"
     filepath = os.path.join(output_dir, filename)
-    
+
     # Создаём изображение формулы
     plt.figure(figsize=(3, 1))
     plt.text(0.5, 0.5, f"${equation_str}$", fontsize=20, ha='center', va='center')
     plt.axis('off')
     plt.savefig(filepath, bbox_inches='tight', pad_inches=0.1)
     plt.close()
-    
+
     return filepath
+
 
 def add_equation_to_docx(doc, equation_str, caption=True):
     """
-    Генерирует изображение формулы и добавляет его в документ с подписью "Формула" белым цветом.
-    
-    :param doc: Объект документа Document.
-    :param equation_str: Строка LaTeX-формулы.
-    :param caption: Добавлять ли подпись к формуле.
+    Генерирует изображение формулы и добавляет его в документ с меткой '~' белым цветом перед формулой.
     """
     equation_image_path = generate_equation_image(equation_str)
     try:
-        doc.add_picture(equation_image_path, width=Inches(4))
         if caption:
-            # Создаем подпись с текстом "Формула"
-            caption_paragraph = doc.add_paragraph("Формула")
-            caption_paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            run = caption_paragraph.runs[0]
-            run.font.size = Pt(10)  # Размер шрифта можно изменить при необходимости
+            # Создаем метку с символом '~' перед формулой
+            label_paragraph = doc.add_paragraph("~")
+            label_paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            run = label_paragraph.runs[0]
+            run.font.size = Pt(1)  # Настройте размер шрифта при необходимости
             run.font.color.rgb = RGBColor(255, 255, 255)  # Белый цвет шрифта
+
+            # Добавляем свойство 'keep_with_next' к параграфу с меткой
+            label_paragraph.paragraph_format.keep_with_next = True
+
+        # Добавляем изображение формулы
+        doc.add_picture(equation_image_path, width=Inches(4))
+
+        # Получаем параграф с изображением и устанавливаем 'keep_together'
+        image_paragraph = doc.paragraphs[-1]
+        image_paragraph.paragraph_format.keep_together = True
+
     except Exception as e:
         print(f"Ошибка при добавлении формулы: {e}")
 
@@ -117,7 +124,7 @@ def add_equation_to_docx(doc, equation_str, caption=True):
 def add_footnote(paragraph, footnote_text, footnote_num, footnotes):
     """
     Добавляет сноску в абзац и сохраняет её текст.
-    
+
     :param paragraph: Объект абзаца.
     :param footnote_text: Текст сноски.
     :param footnote_num: Номер сноски.
@@ -127,10 +134,11 @@ def add_footnote(paragraph, footnote_text, footnote_num, footnotes):
     footnote_mark.font.superscript = True
     footnotes.append((footnote_num, footnote_text))
 
+
 def add_footnotes_section(document, footnotes):
     """
     Добавляет раздел с примечаниями (сносками) в конец документа.
-    
+
     :param document: Объект документа Document.
     :param footnotes: Список сносок.
     """
@@ -143,7 +151,9 @@ def add_footnotes_section(document, footnotes):
             footnote_run = footnote_paragraph.add_run(f'[{num}] {text}')
             footnote_run.font.size = Pt(8)
 
+
 colors_list = COLORS.split()
+
 
 def set_table_borders(table, include_borders=True):
     tbl = table._tbl
@@ -167,6 +177,7 @@ def set_table_borders(table, include_borders=True):
         # Удаляем границы, если они есть
         for element in tblPr.xpath('w:tblBorders'):
             tblPr.remove(element)
+
 
 for doc_num in range(num_documents):
 
@@ -228,7 +239,7 @@ for doc_num in range(num_documents):
         paragraph = document.add_paragraph(fake.text(max_nb_chars=random.randint(500, 1000)))
         # Выбираем размер шрифта для основного текста (как минимум на 2 пункта меньше заголовка)
         max_text_size = heading_size - 2
-        font_size = Pt(random.randint(8, heading_size-2))
+        font_size = Pt(random.randint(8, heading_size - 2))
         paragraph_format = paragraph.paragraph_format
         paragraph_format.first_line_indent = Cm(1) if random.choice([True, False]) else None
         paragraph_format.alignment = random.choice([
@@ -239,7 +250,7 @@ for doc_num in range(num_documents):
         ])
 
         # Выбираем единый размер шрифта для всего абзаца
-        font_size = Pt(random.randint(8, heading_size-2))
+        font_size = Pt(random.randint(8, heading_size - 2))
 
         # Разбиваем текст на предложения
         sentences = paragraph.text.split('. ')
@@ -337,12 +348,28 @@ for doc_num in range(num_documents):
                     ])
                     cell.paragraphs[0].alignment = alignment
 
-        # Добавляем изображение с подписью
+        # Добавляем изображение с подписью и меткой '&' перед изображением
         image_files = os.listdir(images_folder) if os.path.exists(images_folder) else []
         if image_files:
             image_path = os.path.join(images_folder, random.choice(image_files))
             try:
+                # Добавляем метку с символом '&' перед изображением
+                label_paragraph = document.add_paragraph("&")
+                label_paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                run = label_paragraph.runs[0]
+                run.font.size = Pt(1)  # Настройте размер шрифта при необходимости
+                run.font.color.rgb = RGBColor(255, 255, 255)  # Белый цвет шрифта
+
+                # Устанавливаем свойство 'keep_with_next' для метки
+                label_paragraph.paragraph_format.keep_with_next = True
+
+                # Добавляем изображение
                 document.add_picture(image_path, width=Inches(4))
+
+                # Получаем параграф с изображением и устанавливаем 'keep_together'
+                image_paragraph = document.paragraphs[-1]
+                image_paragraph.paragraph_format.keep_together = True
+
             except Exception as e:
                 print(f"Ошибка при добавлении изображения: {e}")
 
@@ -386,7 +413,7 @@ for doc_num in range(num_documents):
         ])
 
         # Выбираем единый размер шрифта для всего абзаца
-        font_size = Pt(random.randint(8, heading_size-2))
+        font_size = Pt(random.randint(8, heading_size - 2))
 
         # Разбиваем текст на предложения
         sentences = paragraph.text.split('. ')

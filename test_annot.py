@@ -3,19 +3,19 @@ import json
 import re
 from pdfminer.high_level import extract_pages
 from pdfminer.layout import (LAParams, LTTextBoxHorizontal, LTTextLineHorizontal,
-                             LTChar, LTFigure, LTImage)
+                             LTChar)
 from collections import defaultdict
+import fitz  # PyMuPDF
 
 # Масштабный коэффициент для преобразования координат
 SCALING_FACTOR = 4.1667  # Пример для dpi=300 (300 / 72)
 IMAGE_DIR = 'image'  # Папка, где сохраняются изображения страницы
 
+
 def extract_annotations_from_pdf(pdf_path, output_dir='json'):
     """
     Извлекает координаты элементов из PDF-файла и сохраняет их в JSON-файлы.
-
-    :param pdf_path: Путь к PDF-файлу.
-    :param output_dir: Директория для сохранения JSON-файлов.
+    pdfminer больше не помечает картинки.
     """
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
@@ -26,7 +26,6 @@ def extract_annotations_from_pdf(pdf_path, output_dir='json'):
         annotations = defaultdict(list)
         font_sizes = []
         elements = []
-        images = []
         header_elements = []
         footer_elements = []
         page_width = page_layout.bbox[2] * SCALING_FACTOR
@@ -44,10 +43,8 @@ def extract_annotations_from_pdf(pdf_path, output_dir='json'):
         # Флаги для управления состоянием
         in_numbered_list = False
         in_bulleted_list = False
-        in_table = False
-        in_footnote_section = False
 
-        x_list_pred = y_list_pred0 = y_list_pred1 = 0
+        x_list_pred = y_list_pred0 = 0
 
         # Сбор информации о шрифтах и элементах
         for element in page_layout:
@@ -91,24 +88,6 @@ def extract_annotations_from_pdf(pdf_path, output_dir='json'):
                                 'is_italic': is_italic,
                                 'font_colors': font_colors
                             })
-            elif isinstance(element, (LTFigure, LTImage)):
-                def parse_figure(fig):
-                    for obj in fig:
-                        if isinstance(obj, LTImage):
-                            x0, y0, x1, y1 = obj.bbox
-                            x0_scaled = x0 * SCALING_FACTOR
-                            y0_scaled = y0 * SCALING_FACTOR
-                            x1_scaled = x1 * SCALING_FACTOR
-                            y1_scaled = y1 * SCALING_FACTOR
-                            coords_transformed = [x0_scaled, page_height - y1_scaled, x1_scaled, page_height - y0_scaled]
-                            images.append({
-                                'bbox': coords_transformed,
-                                'y0': y0_scaled,
-                                'y1': y1_scaled
-                            })
-                        elif isinstance(obj, LTFigure):
-                            parse_figure(obj)
-                parse_figure(element)
 
         average_font_size = sum(font_sizes) / len(font_sizes) if font_sizes else 0
 
@@ -142,34 +121,26 @@ def extract_annotations_from_pdf(pdf_path, output_dir='json'):
                 continue
 
             # Обработка сносок в тексте
-            footnote_matches = re.finditer(r'\[\d+\]', text)
-            x0_br = y0_br = x1_br = y1_br = 0
+            footnote_matches = re.finditer(r'$$\d+$$', text)
             for match in footnote_matches:
                 start, end = match.span()
-                for idxx, char in enumerate(text_line):
-                    if start <= idxx < end:
-                        if isinstance(char, LTChar):
-                            char_text = char.get_text()
-                            if char_text == '[':
-                                x0_br = char.bbox[0] * SCALING_FACTOR
-                                y0_br = page_height - char.bbox[3] * SCALING_FACTOR
-                            if char_text == ']':
-                                x1_br = char.bbox[2] * SCALING_FACTOR
-                                y1_br = page_height - char.bbox[1] * SCALING_FACTOR
-                                annotations['footnote'].append([x0_br, y0_br, x1_br, y1_br])
-                                break                                                      
+                x0_br = text_line.bbox[0] * SCALING_FACTOR
+                y0_br = page_height - text_line.bbox[3] * SCALING_FACTOR
+                x1_br = text_line.bbox[2] * SCALING_FACTOR
+                y1_br = page_height - text_line.bbox[1] * SCALING_FACTOR
+                annotations['footnote'].append([x0_br, y0_br, x1_br, y1_br])
+                break
 
-            
+            # Функция для получения координат первого символа
             def get_first_char_coords(text_line):
                 for char in text_line:
                     if isinstance(char, LTChar):
                         return [char.bbox[0], char.bbox[1], char.bbox[3]]
-                return None                  
-
+                return None
 
             # Обработка нумерованных списков
             numbered_match = re.match(r'^\s*\d+[\.\)]\s+', text)
-            if numbered_match:               
+            if numbered_match:
                 if current_paragraph is not None:
                     annotations['paragraph'].append(current_paragraph)
                     current_paragraph = None
@@ -221,37 +192,8 @@ def extract_annotations_from_pdf(pdf_path, output_dir='json'):
                 if current_paragraph is not None:
                     annotations['paragraph'].append(current_paragraph)
                     current_paragraph = None
-
-                # Объединение последующих строк в подписи к рисунку
-                figure_signature_boxes = [coords_transformed]
+                annotations['picture_signature'].append(coords_transformed)
                 idx += 1
-                while idx < len(elements):
-                    next_elem = elements[idx]
-                    next_text_line = next_elem['text_line']
-                    next_text = next_elem['text']
-                    next_x0, next_y0, next_x1, next_y1 = next_text_line.bbox
-                    next_x0_scaled = next_x0 * SCALING_FACTOR
-                    next_y0_scaled = next_y0 * SCALING_FACTOR
-                    next_x1_scaled = next_x1 * SCALING_FACTOR
-                    next_y1_scaled = next_y1 * SCALING_FACTOR
-                    next_coords_transformed = [next_x0_scaled, page_height - next_y1_scaled, next_x1_scaled, page_height - next_y0_scaled]
-
-                    # Проверяем вертикальный промежуток
-                    vertical_gap = y0_scaled - next_y1_scaled
-                    if vertical_gap > average_font_size * 2:
-                        break
-
-                    # Добавляем строку в подпись
-                    figure_signature_boxes.append(next_coords_transformed)
-                    y0_scaled = next_y0_scaled
-                    idx += 1
-
-                # Определяем общий бокс подписи к рисунку
-                min_x = min(box[0] for box in figure_signature_boxes)
-                min_y = min(box[1] for box in figure_signature_boxes)
-                max_x = max(box[2] for box in figure_signature_boxes)
-                max_y = max(box[3] for box in figure_signature_boxes)
-                annotations['picture_signature'].append([min_x, min_y, max_x, max_y])
                 continue
 
             # Обработка таблиц
@@ -260,89 +202,8 @@ def extract_annotations_from_pdf(pdf_path, output_dir='json'):
                 if current_paragraph is not None:
                     annotations['paragraph'].append(current_paragraph)
                     current_paragraph = None
-
-                # Объединение последующих строк в заголовке таблицы
-                table_signature_boxes = [coords_transformed]
+                annotations['table_signature'].append(coords_transformed)
                 idx += 1
-                while idx < len(elements):
-                    next_elem = elements[idx]
-                    next_text_line = next_elem['text_line']
-                    next_text = next_elem['text']
-                    next_x0, next_y0, next_x1, next_y1 = next_text_line.bbox
-                    next_x0_scaled = next_x0 * SCALING_FACTOR
-                    next_y0_scaled = next_y0 * SCALING_FACTOR
-                    next_x1_scaled = next_x1 * SCALING_FACTOR
-                    next_y1_scaled = next_y1 * SCALING_FACTOR
-                    next_coords_transformed = [next_x0_scaled, page_height - next_y1_scaled, next_x1_scaled, page_height - next_y0_scaled]
-
-                    # Проверяем вертикальный промежуток
-                    vertical_gap = y0_scaled - next_y1_scaled
-                    if vertical_gap > average_font_size * 2:
-                        break
-
-                    # Добавляем строку в заголовок таблицы
-                    table_signature_boxes.append(next_coords_transformed)
-                    y0_scaled = next_y0_scaled
-                    idx += 1
-
-                # Определяем общий бокс заголовка таблицы
-                min_x = min(box[0] for box in table_signature_boxes)
-                min_y = min(box[1] for box in table_signature_boxes)
-                max_x = max(box[2] for box in table_signature_boxes)
-                max_y = max(box[3] for box in table_signature_boxes)
-                annotations['table_signature'].append([min_x, min_y, max_x, max_y])
-
-                # Теперь берем следующий параграф и считаем его таблицей
-                if idx < len(elements):
-                    next_elem = elements[idx]
-                    next_text_line = next_elem['text_line']
-                    next_text = next_elem['text']
-                    next_font_size = next_elem['font_size']
-                    next_is_bold = next_elem['is_bold']
-                    next_is_italic = next_elem['is_italic']
-                    next_x0, next_y0, next_x1, next_y1 = next_text_line.bbox
-                    next_x0_scaled = next_x0 * SCALING_FACTOR
-                    next_y0_scaled = next_y0 * SCALING_FACTOR
-                    next_x1_scaled = next_x1 * SCALING_FACTOR
-                    next_y1_scaled = next_y1 * SCALING_FACTOR
-                    next_coords_transformed = [next_x0_scaled, page_height - next_y1_scaled, next_x1_scaled, page_height - next_y0_scaled]
-
-                    # Собираем строки, пока они образуют параграф (то есть таблицу)
-                    table_boxes = [next_coords_transformed]
-                    idx += 1
-                    y0_scaled = next_y0_scaled
-                    while idx < len(elements):
-                        next_elem = elements[idx]
-                        next_text_line = next_elem['text_line']
-                        next_text = next_elem['text']
-                        next_x0, next_y0, next_x1, next_y1 = next_text_line.bbox
-                        next_x0_scaled = next_x0 * SCALING_FACTOR
-                        next_y0_scaled = next_y0 * SCALING_FACTOR
-                        next_x1_scaled = next_x1 * SCALING_FACTOR
-                        next_y1_scaled = next_y1 * SCALING_FACTOR
-                        next_coords_transformed = [next_x0_scaled, page_height - next_y1_scaled, next_x1_scaled, page_height - next_y0_scaled]
-
-                        # Проверяем вертикальный промежуток
-                        vertical_gap = y0_scaled - next_y1_scaled
-                        if vertical_gap > average_font_size * 2:
-                            break
-
-                        # Останавливаемся, если встречаем новый заголовок таблицы или другой заголовок
-                        if re.match(r'^\s*(табл\.?|таблица)\s*\d+', next_text.lower()) or \
-                           re.match(r'^\s*(рис\.?|рисунок)\s*\d+', next_text.lower()):
-                            break
-                        # Добавляем элемент таблицы
-                        table_boxes.append(next_coords_transformed)
-                        y0_scaled = next_y0_scaled
-                        idx += 1
-
-                    if table_boxes:
-                        # Определяем общий бокс таблицы
-                        min_x = min(box[0] for box in table_boxes)
-                        min_y = min(box[1] for box in table_boxes)
-                        max_x = max(box[2] for box in table_boxes)
-                        max_y = max(box[3] for box in table_boxes)
-                        annotations['table'].append([min_x, min_y, max_x, max_y])
                 continue
 
             # Обработка формул
@@ -351,19 +212,7 @@ def extract_annotations_from_pdf(pdf_path, output_dir='json'):
                 if current_paragraph is not None:
                     annotations['paragraph'].append(current_paragraph)
                     current_paragraph = None
-                # Ищем изображение над текущей строкой
-                formula_image = None
-                min_distance = None
-                for img in images:
-                    img_y0 = img['y0']
-                    img_y1 = img['y1']
-                    if img_y1 < y1_scaled and (min_distance is None or (y1_scaled - img_y1) < min_distance):
-                        min_distance = y1_scaled - img_y1
-                        formula_image = img
-                if formula_image:
-                    annotations['formula'].append(tuple(formula_image['bbox']))
-                    # Удаляем изображение из списка рисунков, чтобы оно не попало в "picture"
-                    images.remove(formula_image)
+                # Формулы будут обработаны PyMuPDF, поэтому здесь пропускаем
                 idx += 1
                 continue
 
@@ -374,15 +223,13 @@ def extract_annotations_from_pdf(pdf_path, output_dir='json'):
                     current_paragraph = None
                 annotations['title'].append(coords_transformed)
             elif not in_numbered_list and not in_bulleted_list:
-                # Проверяем, что текущая строка не является названием таблицы, рисунка или частью футера/хедера
-                if not re.match(r'^\s*(табл\.?|таблица|рис\.?|рисунок|формула)\s*\d*', text.lower()):
-                    if current_paragraph is None:
-                        current_paragraph = coords_transformed.copy()
-                    else:
-                        current_paragraph[0] = min(current_paragraph[0], coords_transformed[0])
-                        current_paragraph[1] = min(current_paragraph[1], coords_transformed[1])
-                        current_paragraph[2] = max(current_paragraph[2], coords_transformed[2])
-                        current_paragraph[3] = max(current_paragraph[3], coords_transformed[3])
+                if current_paragraph is None:
+                    current_paragraph = coords_transformed.copy()
+                else:
+                    current_paragraph[0] = min(current_paragraph[0], coords_transformed[0])
+                    current_paragraph[1] = min(current_paragraph[1], coords_transformed[1])
+                    current_paragraph[2] = max(current_paragraph[2], coords_transformed[2])
+                    current_paragraph[3] = max(current_paragraph[3], coords_transformed[3])
 
             idx += 1
 
@@ -404,12 +251,6 @@ def extract_annotations_from_pdf(pdf_path, output_dir='json'):
             max_y = max(box[3] for box in footer_elements)
             annotations['footer'].append([min_x, min_y, max_x, max_y])
 
-        # Обработка оставшихся изображений (которые не формулы)
-        for img in images:
-            img_bbox = tuple(img['bbox'])
-            if img_bbox not in annotations.get('formula', []):
-                annotations['picture'].append(img['bbox'])
-
         # Формирование пути к изображению
         image_path = f"{os.path.splitext(os.path.basename(pdf_path))[0]}_page_{page_number + 1}.png"
 
@@ -421,7 +262,7 @@ def extract_annotations_from_pdf(pdf_path, output_dir='json'):
             "title": annotations["title"],
             "paragraph": annotations["paragraph"],
             "table": annotations["table"],
-            "picture": annotations["picture"],
+            "picture": annotations["picture"],  # Пустой список, так как pdfminer не помечает картинки
             "table_signature": annotations["table_signature"],
             "picture_signature": annotations["picture_signature"],
             "numbered_list": annotations["numbered_list"],
@@ -437,22 +278,130 @@ def extract_annotations_from_pdf(pdf_path, output_dir='json'):
         json_path = os.path.join(output_dir, json_name)
         with open(json_path, 'w', encoding='utf-8') as json_file:
             json.dump(json_data, json_file, ensure_ascii=False, indent=4)
-        print(f"Аннотации для страницы {page_number+1} сохранены в {json_path}.")
+        print(f"Аннотации для страницы {page_number + 1} сохранены в {json_path}.")
+
 
 def is_centered_text(text_line, page_width, tolerance=20):
     """
     Проверяет, выровнен ли текст по центру страницы для выявления надписи "Формула" под рисунком.
-
     :param text_line: Объект LTTextLineHorizontal.
     :param page_width: Ширина страницы.
     :param tolerance: Допустимое отклонение в пикселях.
     :return: True, если текст выровнен по центру, иначе False.
     """
     x0, _, x1, _ = text_line.bbox
-    text_width = x1 - x0
-    page_center = page_width / 2
     text_center = (x0 + x1) / 2 * SCALING_FACTOR
+    page_center = page_width / 2
     return abs(page_center - text_center) <= tolerance
+
+
+def extract_annotations_with_pymupdf(pdf_path, output_dir='json'):
+    """
+    Извлекает координаты элементов из PDF-файла с помощью PyMuPDF и добавляет аннотации формул и изображений.
+    """
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    doc = fitz.open(pdf_path)
+
+    for page_number in range(len(doc)):
+        page = doc[page_number]
+        page_width, page_height = page.rect.width, page.rect.height
+
+        # Получаем текстовые блоки в виде словаря
+        page_dict = page.get_text("dict")
+        blocks = page_dict["blocks"]
+
+        elements = []  # Список для хранения элементов страницы
+        pictures_type = []  # Список для хранения типов аннотаций ("formula", "image")
+
+        for block in blocks:
+            if block['type'] == 0:  # Текстовый блок
+                for line in block['lines']:
+                    for span in line['spans']:
+                        text = span['text']
+                        bbox = span['bbox']  # [x0, y0, x1, y1]
+                        x0, y0, x1, y1 = bbox
+                        # Преобразуем координаты в нужный формат
+                        x0_scaled = x0 * SCALING_FACTOR
+                        y0_scaled = y0 * SCALING_FACTOR
+                        x1_scaled = x1 * SCALING_FACTOR
+                        y1_scaled = y1 * SCALING_FACTOR
+                        coords_transformed = [x0_scaled, y0_scaled, x1_scaled, y1_scaled]
+                        elements.append({
+                            'type': 'text',
+                            'text': text,
+                            'bbox': coords_transformed
+                        })
+                        # Проверяем на наличие символов "~" и "&"
+                        if '~' in text:
+                            pictures_type.append('formula')
+                        if '&' in text:
+                            pictures_type.append('image')
+            elif block['type'] == 1:  # Изображение
+                bbox = block['bbox']
+                x0, y0, x1, y1 = bbox
+                x0_scaled = x0 * SCALING_FACTOR
+                y0_scaled = y0 * SCALING_FACTOR
+                x1_scaled = x1 * SCALING_FACTOR
+                y1_scaled = y1 * SCALING_FACTOR
+                coords_transformed = [x0_scaled, y0_scaled, x1_scaled, y1_scaled]
+                elements.append({
+                    'type': 'image',
+                    'bbox': coords_transformed
+                })
+        print(pictures_type)
+        # Проходим по последним элементам в количестве len(pictures_type) и присваиваем аннотации
+        image_elements = [elem for elem in elements if elem['type'] == 'image']
+        print(image_elements)
+        print(len(image_elements))
+        print(len(pictures_type))
+
+        # Теперь присваиваем аннотации
+        for idx, image_elem in enumerate(image_elements[-len(pictures_type):]):
+            image_elem['annotations'] = pictures_type[idx]
+        print(image_elements)
+
+        # Загрузка существующих аннотаций из pdfminer
+        json_name = f"{os.path.splitext(os.path.basename(pdf_path))[0]}_page_{page_number + 1}.json"
+        json_path = os.path.join(output_dir, json_name)
+        if os.path.exists(json_path):
+            with open(json_path, 'r', encoding='utf-8') as json_file:
+                json_data = json.load(json_file)
+        else:
+            json_data = {
+                "image_height": int(page_height * SCALING_FACTOR),
+                "image_width": int(page_width * SCALING_FACTOR),
+                "image_path": os.path.join(IMAGE_DIR, f"{os.path.splitext(os.path.basename(pdf_path))[0]}_page_{page_number + 1}.png"),
+                "title": [],
+                "paragraph": [],
+                "table": [],
+                "picture": [],
+                "table_signature": [],
+                "picture_signature": [],
+                "numbered_list": [],
+                "marked_list": [],
+                "header": [],
+                "footer": [],
+                "footnote": [],
+                "formula": []
+            }
+
+        # Добавляем аннотации из PyMuPDF к существующим аннотациям
+        for element in elements:
+            if 'annotations' in element:
+                if 'formula' in element['annotations']:
+                    json_data['formula'].append(element['bbox'])
+                if 'image' in element['annotations']:
+                    json_data['picture'].append(element['bbox'])
+
+        # Сохраняем обновленные аннотации
+        with open(json_path, 'w', encoding='utf-8') as json_file:
+            json.dump(json_data, json_file, ensure_ascii=False, indent=4)
+        print(f"Обновленные аннотации для страницы {page_number + 1} сохранены в {json_path}.")
+
+    doc.close()
+
 
 if __name__ == "__main__":
     pdf_folder = "pdf"
@@ -461,3 +410,4 @@ if __name__ == "__main__":
         pdf_path = os.path.join(pdf_folder, pdf_file)
         print(f"Обработка файла: {pdf_file}")
         extract_annotations_from_pdf(pdf_path)
+        extract_annotations_with_pymupdf(pdf_path)
