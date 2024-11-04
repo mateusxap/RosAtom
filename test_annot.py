@@ -47,6 +47,8 @@ def extract_annotations_from_pdf(pdf_path, output_dir='json'):
         in_table = False
         in_footnote_section = False
 
+        x_list_pred = y_list_pred0 = y_list_pred1 = 0
+
         # Сбор информации о шрифтах и элементах
         for element in page_layout:
             if isinstance(element, LTTextBoxHorizontal):
@@ -154,11 +156,20 @@ def extract_annotations_from_pdf(pdf_path, output_dir='json'):
                             if char_text == ']':
                                 x1_br = char.bbox[2] * SCALING_FACTOR
                                 y1_br = page_height - char.bbox[1] * SCALING_FACTOR
-                                annotations['footnote'].append([x0_br, y0_br, x1_br, y1_br])                                                      
+                                annotations['footnote'].append([x0_br, y0_br, x1_br, y1_br])
+                                break                                                      
+
+            
+            def get_first_char_coords(text_line):
+                for char in text_line:
+                    if isinstance(char, LTChar):
+                        return [char.bbox[0], char.bbox[1], char.bbox[3]]
+                return None                  
+
 
             # Обработка нумерованных списков
             numbered_match = re.match(r'^\s*\d+[\.\)]\s+', text)
-            if numbered_match:
+            if numbered_match:               
                 if current_paragraph is not None:
                     annotations['paragraph'].append(current_paragraph)
                     current_paragraph = None
@@ -166,6 +177,7 @@ def extract_annotations_from_pdf(pdf_path, output_dir='json'):
                 in_numbered_list = True
                 in_bulleted_list = False
                 idx += 1
+                x_list_pred, y_list_pred0, _ = get_first_char_coords(text_line)
                 continue
 
             # Обработка маркированных списков
@@ -178,24 +190,27 @@ def extract_annotations_from_pdf(pdf_path, output_dir='json'):
                 in_bulleted_list = True
                 in_numbered_list = False
                 idx += 1
+                x_list_pred, y_list_pred0, _ = get_first_char_coords(text_line)
                 continue
 
             # Продолжение нумерованного списка
             if in_numbered_list:
-                continuation_match = re.match(r'^\s+', text)
-                if continuation_match:
+                x_list, y_list0, y_list1 = get_first_char_coords(text_line)
+                if (x_list - x_list_pred > 8) and (y_list_pred0 - y_list1 <= 12):
                     annotations['numbered_list'].append(coords_transformed)
                     idx += 1
+                    y_list_pred0 = y_list0
                     continue
                 else:
                     in_numbered_list = False
 
             # Продолжение маркированного списка
             if in_bulleted_list:
-                continuation_match = re.match(r'^\s+', text)
-                if continuation_match:
+                x_list, y_list0, y_list1 = get_first_char_coords(text_line)
+                if (x_list - x_list_pred > 10) and (y_list_pred0 - y_list1 <= 12):
                     annotations['marked_list'].append(coords_transformed)
                     idx += 1
+                    y_list_pred0 = y_list0
                     continue
                 else:
                     in_bulleted_list = False
