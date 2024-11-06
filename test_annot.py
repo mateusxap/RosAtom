@@ -121,15 +121,22 @@ def extract_annotations_from_pdf(pdf_path, output_dir='json'):
                 continue
 
             # Обработка сносок в тексте
-            footnote_matches = re.finditer(r'$$\d+$$', text)
+            footnote_matches = re.finditer(r'\[\d+\]', text)
+            x0_br = y0_br = x1_br = y1_br = 0
             for match in footnote_matches:
                 start, end = match.span()
-                x0_br = text_line.bbox[0] * SCALING_FACTOR
-                y0_br = page_height - text_line.bbox[3] * SCALING_FACTOR
-                x1_br = text_line.bbox[2] * SCALING_FACTOR
-                y1_br = page_height - text_line.bbox[1] * SCALING_FACTOR
-                annotations['footnote'].append([x0_br, y0_br, x1_br, y1_br])
-                break
+                for idxx, char in enumerate(text_line):
+                    if start <= idxx < end:
+                        if isinstance(char, LTChar):
+                            char_text = char.get_text()
+                            if char_text == '[':
+                                x0_br = char.bbox[0] * SCALING_FACTOR
+                                y0_br = page_height - char.bbox[3] * SCALING_FACTOR
+                            if char_text == ']':
+                                x1_br = char.bbox[2] * SCALING_FACTOR
+                                y1_br = page_height - char.bbox[1] * SCALING_FACTOR
+                                annotations['footnote'].append([x0_br, y0_br, x1_br, y1_br])
+                                break
 
             # Функция для получения координат первого символа
             def get_first_char_coords(text_line):

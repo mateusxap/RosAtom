@@ -72,8 +72,7 @@ def extract_annotations_from_pdf(pdf_path, output_dir='json'):
             # Флаги для управления состоянием
             in_numbered_list = False
             in_bulleted_list = False
-
-            x_list_pred = y_list_pred0 = 0
+            x_list_pred = y_list_pred = char_size_pred = 0
 
             # Сбор информации о шрифтах и элементах
             for element in page_layout:
@@ -164,20 +163,36 @@ def extract_annotations_from_pdf(pdf_path, output_dir='json'):
                     continue
 
                 # Обработка сносок в тексте
-                footnote_matches = re.finditer(r'\$\$\d+\$\$', text)
+                footnote_matches = re.finditer(r'\[\d+\]', text)
+                x0_br = y0_br = x1_br = y1_br = 0
                 for match in footnote_matches:
                     start, end = match.span()
-                    annotations['footnote'].append(coords_transformed)
-                    break
+                    for idxx, char in enumerate(text_line):
+                        if start <= idxx < end:
+                            if isinstance(char, LTChar):
+                                char_text = char.get_text()
+                                if char_text == '[':
+                                    x0_br = char.bbox[0] * SCALING_FACTOR
+                                    y0_br = page_height - char.bbox[3] * SCALING_FACTOR
+                                if char_text == ']':
+                                    x1_br = char.bbox[2] * SCALING_FACTOR
+                                    y1_br = page_height - char.bbox[1] * SCALING_FACTOR
+                                    annotations['footnote'].append([x0_br, y0_br, x1_br, y1_br])
+                                    break               
 
                 # Функция для получения координат первого символа
-                def get_first_char_coords(text_line):
+                def first_char_coords_and_size(text_line):
+                    is_first_char = True
+                    x0_char = y0_char = y1_char = 0
                     for char in text_line:
                         if isinstance(char, LTChar):
-                            x0_char = char.bbox[0] * SCALING_FACTOR
-                            y0_char = page_height - char.bbox[3] * SCALING_FACTOR
-                            y1_char = page_height - char.bbox[1] * SCALING_FACTOR
-                            return [x0_char, y0_char, y1_char]
+                            if is_first_char:
+                                x0_char = char.bbox[0] * SCALING_FACTOR
+                                y0_char = page_height - char.bbox[1] * SCALING_FACTOR
+                                y1_char = page_height - char.bbox[3] * SCALING_FACTOR
+                                is_first_char = False
+                            if char.get_text().isalpha():
+                                return [x0_char, y0_char, y1_char, round(char.size)]
                     return None
 
                 # Обработка нумерованных списков
@@ -190,9 +205,9 @@ def extract_annotations_from_pdf(pdf_path, output_dir='json'):
                     in_numbered_list = True
                     in_bulleted_list = False
                     idx += 1
-                    first_char_coords = get_first_char_coords(text_line)
+                    first_char_coords = first_char_coords_and_size(text_line)
                     if first_char_coords:
-                        x_list_pred, y_list_pred0, _ = first_char_coords
+                        x_list_pred, y_list_pred, _, char_size_pred = first_char_coords    
                     continue
 
                 # Обработка маркированных списков
@@ -205,33 +220,33 @@ def extract_annotations_from_pdf(pdf_path, output_dir='json'):
                     in_bulleted_list = True
                     in_numbered_list = False
                     idx += 1
-                    first_char_coords = get_first_char_coords(text_line)
+                    first_char_coords = first_char_coords_and_size(text_line)
                     if first_char_coords:
-                        x_list_pred, y_list_pred0, _ = first_char_coords
+                        x_list_pred, y_list_pred, _, char_size_pred = first_char_coords
                     continue
 
                 # Продолжение нумерованного списка
                 if in_numbered_list:
-                    first_char_coords = get_first_char_coords(text_line)
+                    first_char_coords = first_char_coords_and_size(text_line)
                     if first_char_coords:
-                        x_list, y_list0, y_list1 = first_char_coords
-                        if (x_list - x_list_pred > 8) and (y_list_pred0 - y_list1 <= 12):
+                        x_list, y_list0, y_list1, char_size = first_char_coords                
+                        if (x_list - x_list_pred > 75) and (y_list1 - y_list_pred <= 49) and (char_size == char_size_pred):
                             annotations['numbered_list'].append(coords_transformed)
                             idx += 1
-                            y_list_pred0 = y_list0
+                            y_list_pred = y_list0
                             continue
                         else:
                             in_numbered_list = False
 
                 # Продолжение маркированного списка
                 if in_bulleted_list:
-                    first_char_coords = get_first_char_coords(text_line)
+                    first_char_coords = first_char_coords_and_size(text_line)
                     if first_char_coords:
-                        x_list, y_list0, y_list1 = first_char_coords
-                        if (x_list - x_list_pred > 10) and (y_list_pred0 - y_list1 <= 12):
+                        x_list, y_list0, y_list1, char_size = first_char_coords
+                        if (x_list - x_list_pred > 75) and (y_list1 - y_list_pred <= 49) and (char_size == char_size_pred):                           
                             annotations['marked_list'].append(coords_transformed)
                             idx += 1
-                            y_list_pred0 = y_list0
+                            y_list_pred = y_list0
                             continue
                         else:
                             in_bulleted_list = False
