@@ -1,1 +1,8 @@
 venv/
+#Папки с генерируемыми файлами
+annotated_images/
+docx/
+equations/
+image/
+json/
+pdf/
