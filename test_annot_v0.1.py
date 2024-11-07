@@ -451,7 +451,8 @@ def extract_annotations_with_pymupdf(pdf_path, output_dir='json'):
 
         # Теперь присваиваем аннотации
         for idx, image_elem in enumerate(image_elements[-len(pictures_type):]):
-            image_elem['annotations'] = pictures_type[idx]
+            if idx < len(pictures_type):
+                image_elem['annotations'] = pictures_type[idx]
 
         # Загрузка существующих аннотаций из pdfminer
         json_name = f"{os.path.splitext(os.path.basename(pdf_path))[0]}_page_{page_number + 1}.json"
