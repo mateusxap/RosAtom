@@ -10,6 +10,7 @@ from docx.shared import RGBColor, Pt, Cm, Inches
 from docx.oxml import OxmlElement
 from faker import Faker
 import matplotlib.pyplot as plt
+from PIL import Image
 
 # Инициализация Faker
 locales = OrderedDict([
@@ -92,35 +93,69 @@ def generate_equation_image(equation_str, output_dir='equations'):
 
     return filepath
 
+from docx.shared import Inches, Cm, Emu
+
+def add_image_to_document(document, image_path, max_height_px=500):
+    # Открываем изображение
+    image = Image.open(image_path)
+    width_px, height_px = image.size
+
+    # Ограничиваем высоту изображения
+    if height_px > max_height_px:
+        scaling_factor = max_height_px / height_px
+        width_px = int(width_px * scaling_factor)
+        height_px = max_height_px
+
+    # Переводим размеры из пикселей в EMU
+    width_emu = Emu(width_px / 96 * Inches(1).emu)
+    height_emu = Emu(height_px / 96 * Inches(1).emu)
+
+    # Создаем параграф и добавляем метку и изображение
+    paragraph = document.add_paragraph()
+    run = paragraph.add_run()
+
+    # Добавляем метку '&'
+    run.add_text("&")
+    run.font.size = Pt(1)
+    run.font.color.rgb = RGBColor(255, 255, 255)  # Белый цвет
+
+    # Добавляем изображение
+    run.add_picture(image_path, width=width_emu, height=height_emu)
+
+    # Устанавливаем выравнивание параграфа
+    paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+    # Устанавливаем свойства форматирования параграфа
+    paragraph.paragraph_format.keep_together = True
+    paragraph.paragraph_format.keep_with_next = True
+
+    return paragraph
 
 def add_equation_to_docx(doc, equation_str, caption=True):
-    """
-    Генерирует изображение формулы и добавляет его в документ с меткой '~' белым цветом перед формулой.
-    """
     equation_image_path = generate_equation_image(equation_str)
     try:
         if caption:
-            # Создаем метку с символом '~' перед формулой
-            label_paragraph = doc.add_paragraph("~")
-            label_paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            run = label_paragraph.runs[0]
-            run.font.size = Pt(1)  # Настройте размер шрифта при необходимости
-            run.font.color.rgb = RGBColor(255, 255, 255)  # Белый цвет шрифта
+            # Создаем параграф и добавляем метку и изображение
+            paragraph = doc.add_paragraph()
+            run = paragraph.add_run()
 
-            # Добавляем свойство 'keep_with_next' к параграфу с меткой
-            label_paragraph.paragraph_format.keep_with_next = True
+            # Добавляем метку '~'
+            run.add_text("~")
+            run.font.size = Pt(1)
+            run.font.color.rgb = RGBColor(255, 255, 255)  # Белый цвет
 
-        # Добавляем изображение формулы
-        doc.add_picture(equation_image_path, width=Inches(4))
+            # Добавляем изображение формулы
+            run.add_picture(equation_image_path)
 
-        # Получаем параграф с изображением и устанавливаем 'keep_together'
-        image_paragraph = doc.paragraphs[-1]
-        image_paragraph.paragraph_format.keep_together = True
+            # Устанавливаем выравнивание параграфа
+            paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+            # Устанавливаем свойства форматирования параграфа
+            paragraph.paragraph_format.keep_together = True
+            paragraph.paragraph_format.keep_with_next = True
 
     except Exception as e:
         print(f"Ошибка при добавлении формулы: {e}")
-
-
 def add_footnote(paragraph, footnote_text, footnote_num, footnotes):
     """
     Добавляет сноску в абзац и сохраняет её текст.
@@ -253,12 +288,12 @@ for doc_num in range(num_documents):
         # Добавляем верхний колонтитул
         header = document.sections[-1].header
         header_paragraph = header.paragraphs[0]
-        header_paragraph.text = fake.sentence(nb_words=random.randint(5, 10))
+        header_paragraph.text = fake.sentence(nb_words=random.randint(1, 6))
 
         # Добавляем нижний колонтитул
         footer = document.sections[-1].footer
         footer_paragraph = footer.paragraphs[0]
-        footer_paragraph.text = fake.sentence(nb_words=random.randint(5, 10))
+        footer_paragraph.text = fake.sentence(nb_words=random.randint(1, 6))
 
         # Добавляем заголовок
         level = random.randint(0, 4)
@@ -401,24 +436,26 @@ for doc_num in range(num_documents):
                 run.font.size = Pt(1)  # Настройте размер шрифта при необходимости
                 run.font.color.rgb = RGBColor(255, 255, 255)  # Белый цвет шрифта
 
-                # Устанавливаем свойство 'keep_with_next' для метки
+                # Устанавливаем свойства форматирования для метки
                 label_paragraph.paragraph_format.keep_with_next = True
+                label_paragraph.paragraph_format.keep_together = True  # Добавлено
 
-                # Добавляем изображение
-                document.add_picture(image_path, width=Inches(4))
+                # Добавляем изображение с ограничением по высоте
+                image_paragraph = add_image_to_document(document, image_path, max_height_px=500)
 
-                # Получаем параграф с изображением и устанавливаем 'keep_together'
-                image_paragraph = document.paragraphs[-1]
+                # Устанавливаем свойства форматирования для параграфа с изображением
                 image_paragraph.paragraph_format.keep_together = True
+                image_paragraph.paragraph_format.keep_with_next = True  # Добавлено
+
+                # Добавляем подпись к изображению
+                caption_text = f"Рисунок {random.randint(1, 100)} — {fake.sentence(nb_words=random.randint(3, 7))}"
+                caption_paragraph = document.add_paragraph(caption_text)
+                caption_paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                caption_paragraph.paragraph_format.keep_together = True  # Добавлено
 
             except Exception as e:
                 print(f"Ошибка при добавлении изображения: {e}")
 
-            caption_text = f"Рисунок {random.randint(1, 100)} — {fake.sentence(nb_words=random.randint(3, 7))}"
-            caption_paragraph = document.add_paragraph(caption_text)
-            caption_paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            run = caption_paragraph.runs[0]
-            run.font.size = Pt(random.randint(10, 12))
 
         # Добавляем нумерованный список
         for _ in range(random.randint(3, 7)):
