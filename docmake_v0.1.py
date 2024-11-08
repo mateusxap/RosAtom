@@ -264,9 +264,9 @@ for doc_num in range(num_documents):
         if section_num != 0:
             document.add_section(WD_SECTION.NEW_PAGE)
 
+        current_section = document.sections[-1]
         # Случайное изменение ориентации страницы
         if random.randint(0, 1):
-            current_section = document.sections[-1]
             new_width, new_height = current_section.page_height, current_section.page_width
             current_section.orientation = WD_ORIENT.LANDSCAPE
             current_section.page_width = new_width
@@ -285,15 +285,19 @@ for doc_num in range(num_documents):
             cols = sectPr.xpath('./w:cols')[0]
             cols.set(qn('w:num'), '1')
 
-        # Добавляем верхний колонтитул
-        header = document.sections[-1].header
-        header_paragraph = header.paragraphs[0]
-        header_paragraph.text = fake.sentence(nb_words=random.randint(1, 6))
+        # Случайно решаем, добавлять ли верхний колонтитул
+        if random.choice([True, False]):
+            # Добавляем верхний колонтитул
+            header = current_section.header
+            header_paragraph = header.paragraphs[0]
+            header_paragraph.text = fake.sentence(nb_words=random.randint(1, 6))
 
-        # Добавляем нижний колонтитул
-        footer = document.sections[-1].footer
-        footer_paragraph = footer.paragraphs[0]
-        footer_paragraph.text = fake.sentence(nb_words=random.randint(1, 6))
+        # Случайно решаем, добавлять ли нижний колонтитул
+        if random.choice([True, False]):
+            # Добавляем нижний колонтитул
+            footer = current_section.footer
+            footer_paragraph = footer.paragraphs[0]
+            footer_paragraph.text = fake.sentence(nb_words=random.randint(1, 6))
 
         # Добавляем заголовок
         level = random.randint(0, 4)
