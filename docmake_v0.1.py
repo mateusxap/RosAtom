@@ -13,6 +13,8 @@ import matplotlib.pyplot as plt
 from PIL import Image
 from docx.shared import Inches, Cm, Emu
 import numpy as np
+from docx.oxml.ns import qn
+from docx.oxml import OxmlElement
 
 # Инициализация Faker
 locales = OrderedDict([
@@ -301,6 +303,26 @@ def add_plot_to_docx(doc):
     except Exception as e:
         print(f"Ошибка при добавлении графика: {e}")
 
+def set_numbering_font_size(document, font_size):
+    """
+    Устанавливает размер шрифта для номеров и маркеров всех списков в документе.
+    """
+    numbering_part = document.part.numbering_part
+    numbering_elem = numbering_part.element
+
+    for abstractNum in numbering_elem.findall(qn('w:abstractNum')):
+        for lvl in abstractNum.findall(qn('w:lvl')):
+            rPr = lvl.find(qn('w:rPr'))
+            if rPr is None:
+                rPr = OxmlElement('w:rPr')
+                lvl.append(rPr)
+            sz = rPr.find(qn('w:sz'))
+            if sz is None:
+                sz = OxmlElement('w:sz')
+                rPr.append(sz)
+            sz_val = str(int(font_size * 2))  # Размер шрифта в половинных пунктах
+            sz.set(qn('w:val'), sz_val)
+
 for doc_num in range(num_documents):
 
     document = Document()
@@ -528,26 +550,51 @@ for doc_num in range(num_documents):
                     print(f"Ошибка при добавлении изображения: {e}")
 
         # Добавляем нумерованный список
+        list_font_size = random.randint(8, 16)
+        list_font_size_pt = Pt(list_font_size)
+        list_line_spacing = random.uniform(1.0, 1.5)
+
+        # Создаём список параграфов для отслеживания
+        numbered_paragraphs = []
+
         for _ in range(random.randint(3, 7)):
             list_item = fake.sentence(nb_words=random.randint(5, 15))
             paragraph = document.add_paragraph(list_item, style='List Number')
+            numbered_paragraphs.append(paragraph)
             paragraph_format = paragraph.paragraph_format
             paragraph_format.left_indent = Cm(1)
-            paragraph_format.line_spacing = random.uniform(1.0, 1.5)
+            paragraph_format.line_spacing = list_line_spacing
             run = paragraph.runs[0]
-            run.font.size = Pt(random.randint(8, 16))
+            run.font.size = list_font_size_pt
             run.font.name = 'Times New Roman'
 
+        # Устанавливаем размер шрифта для номеров списка
+        set_numbering_font_size(document, list_font_size)
+
         # Добавляем маркированный список
+        bullet_list_font_size = random.randint(8, 16)
+        bullet_list_font_size_pt = Pt(bullet_list_font_size)
+        bullet_list_line_spacing = random.uniform(1.0, 1.5)
+
+        # Создаём список параграфов для отслеживания
+        bulleted_paragraphs = []
+
         for _ in range(random.randint(3, 7)):
             list_item = fake.sentence(nb_words=random.randint(5, 15))
             paragraph = document.add_paragraph(list_item, style='List Bullet')
+            bulleted_paragraphs.append(paragraph)
             paragraph_format = paragraph.paragraph_format
             paragraph_format.left_indent = Cm(1)
-            paragraph_format.line_spacing = random.uniform(1.0, 1.5)
+            paragraph_format.line_spacing = bullet_list_line_spacing
             run = paragraph.runs[0]
-            run.font.size = Pt(random.randint(8, 16))
+            run.font.size = bullet_list_font_size_pt
             run.font.name = 'Times New Roman'
+
+        # Устанавливаем размер шрифта для маркеров списка
+        set_numbering_font_size(document, bullet_list_font_size)
+
+        # Устанавливаем размер шрифта для маркеров списка
+        set_numbering_font_size(document, bullet_list_font_size)
 
         # Добавляем абзац текста с возможными сносками
         paragraph = document.add_paragraph(fake.text(max_nb_chars=random.randint(500, 1000)))
