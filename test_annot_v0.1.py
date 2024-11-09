@@ -163,7 +163,7 @@ def extract_annotations_from_pdf(pdf_path, output_dir='json'):
                     continue
 
                 # Обработка сносок в тексте
-                footnote_matches = re.finditer(r'$$\d+$$', text)
+                footnote_matches = re.finditer(r'\[\d+\]', text)
                 x0_br = y0_br = x1_br = y1_br = 0
                 for match in footnote_matches:
                     start, end = match.span()
