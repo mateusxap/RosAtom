@@ -193,11 +193,10 @@ colors_list = COLORS.split()
 
 def set_table_borders(table, borders=None):
     """
-    Устанавливает границы таблицы. Верхняя и нижняя границы всегда включены,
-    а другие границы добавляются по списку.
+    Устанавливает границы таблицы. Если borders пустой или None, границы не устанавливаются.
 
     :param table: Объект таблицы.
-    :param borders: Список дополнительных границ для установки (например, ['left', 'right']).
+    :param borders: Список границ для установки (например, ['top', 'bottom', 'left', 'right', 'insideH', 'insideV']).
     """
     tbl = table._tbl
     tblPr = tbl.tblPr
@@ -209,21 +208,12 @@ def set_table_borders(table, borders=None):
     for element in tblPr.xpath('w:tblBorders'):
         tblPr.remove(element)
 
-    # Определяем обязательные и дополнительные границы
-    required_borders = ['top', 'bottom']
-    optional_borders = ['left', 'right', 'insideH', 'insideV']
-
-    # Формируем список границ для включения
-    borders_to_include = required_borders.copy()
-    if borders:
-        borders_to_include += borders
-
     # Создаем элемент tblBorders
     tblBorders = OxmlElement('w:tblBorders')
 
     for border_name in ['top', 'left', 'bottom', 'right', 'insideH', 'insideV']:
         border = OxmlElement(f'w:{border_name}')
-        if border_name in borders_to_include:
+        if borders and border_name in borders:
             border.set(qn('w:val'), 'single')
             border.set(qn('w:sz'), '4')
             border.set(qn('w:space'), '0')
@@ -340,93 +330,99 @@ for doc_num in range(num_documents):
                 add_footnote(paragraph, footnote_text, footnote_num, footnotes)
                 footnote_num += 1
 
-        # Добавляем подпись к таблице
-        caption_text = f"Таблица {random.randint(1, 100)} — {fake.sentence(nb_words=random.randint(3, 7))}"
-        caption_paragraph = document.add_paragraph(caption_text)
-        caption_paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        run = caption_paragraph.runs[0]
-        run.font.size = Pt(random.randint(10, 12))
+        #Рисуем таблицы только в таком случае, если нет колонок
+        if not use_columns:
+            table_sign_up = random.choice([True, False])
+            if (table_sign_up):
+                # Добавляем подпись к таблице
+                caption_text = f"Таблица {random.randint(1, 100)} — {fake.sentence(nb_words=random.randint(3, 7))}"
+                caption_paragraph = document.add_paragraph(caption_text)
+                caption_paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                run = caption_paragraph.runs[0]
+                run.font.size = Pt(random.randint(10, 12))
 
-        # Устанавливаем свойство 'keep_with_next' для подписи
-        caption_paragraph.paragraph_format.keep_with_next = True
+                # Устанавливаем свойство 'keep_with_next' для подписи
+                caption_paragraph.paragraph_format.keep_with_next = True
 
-        # Добавляем таблицу
-        table = document.add_table(
-            rows=random.randint(2, 5),
-            cols=random.randint(2, 5)
-        )
-        table.alignment = random.choice([
-            WD_TABLE_ALIGNMENT.LEFT,
-            WD_TABLE_ALIGNMENT.CENTER,
-            WD_TABLE_ALIGNMENT.RIGHT
-        ])
+            # Добавляем таблицу
+            table = document.add_table(
+                rows=random.randint(2, 5),
+                cols=random.randint(2, 5)
+            )
+            table.alignment = random.choice([
+                WD_TABLE_ALIGNMENT.LEFT,
+                WD_TABLE_ALIGNMENT.CENTER,
+                WD_TABLE_ALIGNMENT.RIGHT
+            ])
 
-        # Решаем, делать ли таблицу цветной
-        make_colorful = random.choice([True, False])
+            # Решаем, какой тип таблицы создать
+            table_type = random.choice(['colorful_no_grid', 'ordinary_with_grid'])
 
-        # Решаем, какие дополнительные границы таблицы включить (левые, правые, внутренние)
-        possible_optional_borders = ['left', 'right', 'insideH', 'insideV']
-        num_optional = random.randint(0, len(possible_optional_borders))
-        optional_borders_to_include = random.sample(possible_optional_borders, num_optional)
-        set_table_borders(table, borders=optional_borders_to_include)  # 'top' и 'bottom' всегда включены
+            # Устанавливаем общие параметры форматирования для ячеек
+            cell_alignment = random.choice([
+                WD_ALIGN_PARAGRAPH.LEFT,
+                WD_ALIGN_PARAGRAPH.CENTER,
+                WD_ALIGN_PARAGRAPH.RIGHT,
+                WD_ALIGN_PARAGRAPH.JUSTIFY
+            ])
+            cell_font_size = Pt(random.randint(8, 14))
 
-        if make_colorful:
-            # Выбираем случайные цвета для строк
-            color_row_1 = random.choice(colors_list)
-            color_row_2 = random.choice(colors_list)
+            if table_type == 'colorful_no_grid':
+                # Таблица цветная без сетки
+                set_table_borders(table, borders=[])  # Убираем все границы
+                # Выбираем случайные цвета для строк
+                color_row_1 = random.choice(colors_list)
+                color_row_2 = random.choice(colors_list)
 
-            # Выбираем цвет текста: белый или черный
-            font_color = RGBColor(255, 255, 255) if random.choice([True, False]) else RGBColor(0, 0, 0)
+                # Выбираем цвет текста: белый или черный
+                font_color = RGBColor(255, 255, 255) if random.choice([True, False]) else RGBColor(0, 0, 0)
 
-            for idx_row, row in enumerate(table.rows):
-                # Выбираем цвет для текущей строки
-                color = color_row_1 if idx_row % 2 == 0 else color_row_2
+                for idx_row, row in enumerate(table.rows):
+                    # Выбираем цвет для текущей строки
+                    color = color_row_1 if idx_row % 2 == 0 else color_row_2
 
-                for cell in row.cells:
-                    # Заполняем ячейку текстом
-                    cell.text = fake.word()
+                    for cell in row.cells:
+                        # Заполняем ячейку текстом
+                        cell.text = fake.word()
 
-                    # Устанавливаем цвет заливки ячейки
-                    shading_elm = OxmlElement('w:shd')
-                    shading_elm.set(qn('w:fill'), color)
-                    cell._tc.get_or_add_tcPr().append(shading_elm)
+                        # Устанавливаем цвет заливки ячейки
+                        shading_elm = OxmlElement('w:shd')
+                        shading_elm.set(qn('w:fill'), color)
+                        cell._tc.get_or_add_tcPr().append(shading_elm)
 
-                    # Устанавливаем цвет и размер шрифта
-                    for paragraph in cell.paragraphs:
-                        for run in paragraph.runs:
-                            run.font.color.rgb = font_color
-                            run.font.size = Pt(random.randint(8, 14))
+                        # Устанавливаем цвет, размер шрифта и выравнивание
+                        for paragraph in cell.paragraphs:
+                            paragraph.alignment = cell_alignment
+                            for run in paragraph.runs:
+                                run.font.color.rgb = font_color
+                                run.font.size = cell_font_size
 
-                    # Устанавливаем выравнивание содержимого ячейки
-                    alignment = random.choice([
-                        WD_ALIGN_PARAGRAPH.LEFT,
-                        WD_ALIGN_PARAGRAPH.CENTER,
-                        WD_ALIGN_PARAGRAPH.RIGHT,
-                        WD_ALIGN_PARAGRAPH.JUSTIFY
-                    ])
-                    cell.paragraphs[0].alignment = alignment
-        else:
-            # Если таблица не цветная, заполняем ячейки стандартно
-            for row in table.rows:
-                for cell in row.cells:
-                    cell.text = fake.word()
+            else:
+                # Обычная таблица с сеткой
+                set_table_borders(table, borders=['top', 'left', 'bottom', 'right', 'insideH', 'insideV'])
+                for row in table.rows:
+                    for cell in row.cells:
+                        cell.text = fake.word()
 
-                    # Устанавливаем размер шрифта
-                    for paragraph in cell.paragraphs:
-                        for run in paragraph.runs:
-                            run.font.size = Pt(random.randint(8, 14))
+                        # Устанавливаем размер шрифта и выравнивание
+                        for paragraph in cell.paragraphs:
+                            paragraph.alignment = cell_alignment
+                            for run in paragraph.runs:
+                                run.font.size = cell_font_size
 
-                    # Устанавливаем выравнивание содержимого ячейки
-                    alignment = random.choice([
-                        WD_ALIGN_PARAGRAPH.LEFT,
-                        WD_ALIGN_PARAGRAPH.CENTER,
-                        WD_ALIGN_PARAGRAPH.RIGHT,
-                        WD_ALIGN_PARAGRAPH.JUSTIFY
-                    ])
-                    cell.paragraphs[0].alignment = alignment
+                # Устанавливаем свойства для сохранения целостности таблицы
+            set_table_keep_together(table)
 
-        # Устанавливаем свойства для сохранения целостности таблицы
-        set_table_keep_together(table)
+            if (not table_sign_up):
+                # Добавляем подпись к таблице
+                caption_text = f"Таблица {random.randint(1, 100)} — {fake.sentence(nb_words=random.randint(3, 7))}"
+                caption_paragraph = document.add_paragraph(caption_text)
+                caption_paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                run = caption_paragraph.runs[0]
+                run.font.size = Pt(random.randint(10, 12))
+
+                # Устанавливаем свойство 'keep_with_next' для подписи
+                caption_paragraph.paragraph_format.keep_with_next = True
 
         # Добавляем изображение с подписью и меткой '&' перед изображением
         image_files = os.listdir(images_folder) if os.path.exists(images_folder) else []
