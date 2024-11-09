@@ -99,11 +99,13 @@ def extract_annotations_from_pdf(pdf_path, output_dir='json'):
                             line_text = text_line.get_text().strip()
                             if not line_text:
                                 continue
+
                             sizes = []
                             is_bold = False
                             is_italic = False
                             text_chars = []
                             font_colors = set()
+                            contains_special_symbol = False  # Флаг наличия специальных символов
                             for char in text_line:
                                 if isinstance(char, LTChar):
                                     sizes.append(char.size)
@@ -112,7 +114,11 @@ def extract_annotations_from_pdf(pdf_path, output_dir='json'):
                                         is_bold = True
                                     if 'italic' in font_name or 'oblique' in font_name:
                                         is_italic = True
-                                    text_chars.append(char.get_text())
+                                    char_text = char.get_text()
+                                    text_chars.append(char_text)
+                                    # Проверяем наличие специальных символов
+                                    if char_text in ['~', '&', '$']:
+                                        contains_special_symbol = True
                                     # Получение информации о цвете шрифта
                                     try:
                                         font_color = char.graphicstate.ncolor
@@ -121,6 +127,10 @@ def extract_annotations_from_pdf(pdf_path, output_dir='json'):
                                         pass
                                 else:
                                     text_chars.append(char.get_text())
+
+                            # Если строка содержит только специальные символы, пропускаем ее
+                            if contains_special_symbol and not any(c.isalnum() for c in ''.join(text_chars)):
+                                continue
 
                             if sizes:
                                 font_size = sum(sizes) / len(sizes)
@@ -132,7 +142,8 @@ def extract_annotations_from_pdf(pdf_path, output_dir='json'):
                                     'is_bold': is_bold,
                                     'is_italic': is_italic,
                                     'font_colors': font_colors,
-                                    'coords': coords_transformed
+                                    'coords': coords_transformed,
+                                    'contains_special_symbol': contains_special_symbol
                                 })
 
             average_font_size = sum(font_sizes) / len(font_sizes) if font_sizes else 0
@@ -149,6 +160,7 @@ def extract_annotations_from_pdf(pdf_path, output_dir='json'):
                 is_italic = elem['is_italic']
                 font_colors = elem['font_colors']
                 coords_transformed = elem['coords']
+                contains_special_symbol = elem['contains_special_symbol']
 
                 x0_scaled, y0_scaled, x1_scaled, y1_scaled = coords_transformed
 
@@ -325,7 +337,7 @@ def extract_annotations_from_pdf(pdf_path, output_dir='json'):
 
                 # Обработка формул
                 formula_match = re.match(r'^\s*формула', text.lower())
-                if formula_match or (any(color == 1.0 for color in font_colors) and is_centered_text(text_line, page_width)):
+                if formula_match or (is_centered_text(text_line, page_width) and not any(c.isalnum() for c in text)):
                     if current_paragraph is not None:
                         annotations['paragraph'].append(current_paragraph)
                         current_paragraph = None
