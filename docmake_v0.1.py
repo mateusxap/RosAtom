@@ -11,6 +11,8 @@ from docx.oxml import OxmlElement
 from faker import Faker
 import matplotlib.pyplot as plt
 from PIL import Image
+from docx.shared import Inches, Cm, Emu
+import numpy as np
 
 # Инициализация Faker
 locales = OrderedDict([
@@ -29,6 +31,10 @@ if not os.path.exists('docx'):
 # Создаем папку для сохранения формул
 if not os.path.exists('equations'):
     os.makedirs('equations')
+
+# Создаем папку для сохранения графиков
+if not os.path.exists('plots'):
+    os.makedirs('plots')
 
 num_documents = 3  # Количество документов для генерации
 
@@ -68,7 +74,6 @@ FORMULAS = [
     r"\tau = r \times F"
 ]
 
-
 def generate_equation_image(equation_str, output_dir='equations'):
     """
     Генерирует изображение формулы из LaTeX-строки и сохраняет его.
@@ -92,8 +97,6 @@ def generate_equation_image(equation_str, output_dir='equations'):
     plt.close()
 
     return filepath
-
-from docx.shared import Inches, Cm, Emu
 
 def add_image_to_document(document, image_path, max_height_px=500):
     # Открываем изображение
@@ -156,6 +159,7 @@ def add_equation_to_docx(doc, equation_str, caption=True):
 
     except Exception as e:
         print(f"Ошибка при добавлении формулы: {e}")
+
 def add_footnote(paragraph, footnote_text, footnote_num, footnotes):
     """
     Добавляет сноску в абзац и сохраняет её текст.
@@ -168,7 +172,6 @@ def add_footnote(paragraph, footnote_text, footnote_num, footnotes):
     footnote_mark = paragraph.add_run(f'[{footnote_num}]')
     footnote_mark.font.superscript = True
     footnotes.append((footnote_num, footnote_text))
-
 
 def add_footnotes_section(document, footnotes):
     """
@@ -187,9 +190,7 @@ def add_footnotes_section(document, footnotes):
             footnote_run.add_text(f'[{num}] {text}')
             footnote_run.font.size = Pt(8)
 
-
 colors_list = COLORS.split()
-
 
 def set_table_borders(table, borders=None):
     """
@@ -223,7 +224,6 @@ def set_table_borders(table, borders=None):
         tblBorders.append(border)
     tblPr.append(tblBorders)
 
-
 def set_table_keep_together(table):
     """
     Устанавливает свойства для предотвращения разрыва таблицы на разных страницах или колонках.
@@ -239,6 +239,67 @@ def set_table_keep_together(table):
                 paragraph.paragraph_format.keep_together = True
                 paragraph.paragraph_format.keep_with_next = True
 
+def generate_random_plot(output_dir='plots'):
+    """
+    Генерирует случайный график и сохраняет его как изображение.
+    """
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    # Генерируем уникальное имя файла
+    filename = f"plot_{random.randint(1000, 9999)}.png"
+    filepath = os.path.join(output_dir, filename)
+
+    # Определяем диапазон x
+    x = np.linspace(-5, 5, 100)  # 100 точек от -5 до 5
+
+    # Список доступных функций
+    functions = [
+        np.sin, np.cos, np.tan, np.exp, lambda x: x ** 2, lambda x: x ** 3
+    ]
+
+    # Выбираем случайную функцию
+    f = random.choice(functions)
+
+    # Вычисляем y
+    y = f(x)
+
+    # Создаём график
+    plt.figure()
+    plt.plot(x, y)
+    plt.title(f"График функции: {fake.word()}")
+    plt.xlabel("Ось X")
+    plt.ylabel("Ось Y")
+    plt.grid(True)
+    plt.savefig(filepath)
+    plt.close()
+
+    return filepath
+
+def add_plot_to_docx(doc):
+    plot_image_path = generate_random_plot()
+    try:
+        # Создаем параграф и добавляем метку и изображение
+        paragraph = doc.add_paragraph()
+        run = paragraph.add_run()
+
+        # Добавляем метку '$'
+        run.add_text("$")
+        run.font.size = Pt(1)
+        run.font.color.rgb = RGBColor(255, 255, 255)  # Белый цвет
+
+        # Добавляем изображение графика
+        run.add_picture(plot_image_path)
+
+        # Устанавливаем выравнивание параграфа
+        paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+        # Устанавливаем свойства форматирования параграфа
+        paragraph.paragraph_format.keep_together = True
+        paragraph.paragraph_format.keep_with_next = True
+
+    except Exception as e:
+        print(f"Ошибка при добавлении графика: {e}")
 
 for doc_num in range(num_documents):
 
@@ -331,10 +392,10 @@ for doc_num in range(num_documents):
                 add_footnote(paragraph, footnote_text, footnote_num, footnotes)
                 footnote_num += 1
 
-        #Рисуем таблицы только в таком случае, если нет колонок
+        # Рисуем таблицы только в таком случае, если нет колонок
         if not use_columns:
             table_sign_up = random.choice([True, False])
-            if (table_sign_up):
+            if table_sign_up:
                 # Добавляем подпись к таблице
                 caption_text = f"Таблица {random.randint(1, 100)} — {fake.sentence(nb_words=random.randint(3, 7))}"
                 caption_paragraph = document.add_paragraph(caption_text)
@@ -411,10 +472,10 @@ for doc_num in range(num_documents):
                             for run in paragraph.runs:
                                 run.font.size = cell_font_size
 
-                # Устанавливаем свойства для сохранения целостности таблицы
+            # Устанавливаем свойства для сохранения целостности таблицы
             set_table_keep_together(table)
 
-            if (not table_sign_up):
+            if not table_sign_up:
                 # Добавляем подпись к таблице
                 caption_text = f"Таблица {random.randint(1, 100)} — {fake.sentence(nb_words=random.randint(3, 7))}"
                 caption_paragraph = document.add_paragraph(caption_text)
@@ -425,38 +486,46 @@ for doc_num in range(num_documents):
                 # Устанавливаем свойство 'keep_with_next' для подписи
                 caption_paragraph.paragraph_format.keep_with_next = True
 
-        # Добавляем изображение с подписью и меткой '&' перед изображением
-        image_files = os.listdir(images_folder) if os.path.exists(images_folder) else []
-        if image_files:
-            image_path = os.path.join(images_folder, random.choice(image_files))
-            try:
-                # Добавляем метку с символом '&' перед изображением
-                label_paragraph = document.add_paragraph("&")
-                label_paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                run = label_paragraph.runs[0]
-                run.font.size = Pt(1)  # Настройте размер шрифта при необходимости
-                run.font.color.rgb = RGBColor(255, 255, 255)  # Белый цвет шрифта
+        # Добавляем изображение или график с подписью и меткой перед ним если не используем несколько столбцов
+        if not use_columns:
+            add_graph = random.choice([True, False])
+            if add_graph:
+                # Добавляем график
+                add_plot_to_docx(document)
 
-                # Устанавливаем свойства форматирования для метки
-                label_paragraph.paragraph_format.keep_with_next = True
-                label_paragraph.paragraph_format.keep_together = True  # Добавлено
+        add_image = random.choice([True, False])
+        if add_image:
+            # Добавляем изображение
+            image_files = os.listdir(images_folder) if os.path.exists(images_folder) else []
+            if image_files:
+                image_path = os.path.join(images_folder, random.choice(image_files))
+                try:
+                    # Добавляем метку с символом '&' перед изображением
+                    label_paragraph = document.add_paragraph("&")
+                    label_paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                    run = label_paragraph.runs[0]
+                    run.font.size = Pt(1)
+                    run.font.color.rgb = RGBColor(255, 255, 255)  # Белый цвет шрифта
 
-                # Добавляем изображение с ограничением по высоте
-                image_paragraph = add_image_to_document(document, image_path, max_height_px=500)
+                    # Устанавливаем свойства форматирования для метки
+                    label_paragraph.paragraph_format.keep_with_next = True
+                    label_paragraph.paragraph_format.keep_together = True
 
-                # Устанавливаем свойства форматирования для параграфа с изображением
-                image_paragraph.paragraph_format.keep_together = True
-                image_paragraph.paragraph_format.keep_with_next = True  # Добавлено
+                    # Добавляем изображение с ограничением по высоте
+                    image_paragraph = add_image_to_document(document, image_path, max_height_px=500)
 
-                # Добавляем подпись к изображению
-                caption_text = f"Рисунок {random.randint(1, 100)} — {fake.sentence(nb_words=random.randint(3, 7))}"
-                caption_paragraph = document.add_paragraph(caption_text)
-                caption_paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                caption_paragraph.paragraph_format.keep_together = True  # Добавлено
+                    # Устанавливаем свойства форматирования для параграфа с изображением
+                    image_paragraph.paragraph_format.keep_together = True
+                    image_paragraph.paragraph_format.keep_with_next = True
 
-            except Exception as e:
-                print(f"Ошибка при добавлении изображения: {e}")
+                    # Добавляем подпись к изображению
+                    caption_text = f"Рисунок {random.randint(1, 100)} — {fake.sentence(nb_words=random.randint(3, 7))}"
+                    caption_paragraph = document.add_paragraph(caption_text)
+                    caption_paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                    caption_paragraph.paragraph_format.keep_together = True
 
+                except Exception as e:
+                    print(f"Ошибка при добавлении изображения: {e}")
 
         # Добавляем нумерованный список
         for _ in range(random.randint(3, 7)):

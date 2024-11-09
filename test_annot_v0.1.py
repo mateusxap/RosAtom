@@ -163,7 +163,7 @@ def extract_annotations_from_pdf(pdf_path, output_dir='json'):
                     continue
 
                 # Обработка сносок в тексте
-                footnote_matches = re.finditer(r'\[\d+\]', text)
+                footnote_matches = re.finditer(r'$$\d+$$', text)
                 x0_br = y0_br = x1_br = y1_br = 0
                 for match in footnote_matches:
                     start, end = match.span()
@@ -178,7 +178,7 @@ def extract_annotations_from_pdf(pdf_path, output_dir='json'):
                                     x1_br = char.bbox[2] * SCALING_FACTOR
                                     y1_br = page_height - char.bbox[1] * SCALING_FACTOR
                                     annotations['footnote'].append([x0_br, y0_br, x1_br, y1_br])
-                                    break               
+                                    break
 
                 # Функция для получения координат первого символа
                 def first_char_coords_and_size(text_line):
@@ -207,7 +207,7 @@ def extract_annotations_from_pdf(pdf_path, output_dir='json'):
                     idx += 1
                     first_char_coords = first_char_coords_and_size(text_line)
                     if first_char_coords:
-                        x_list_pred, y_list_pred, _, char_size_pred = first_char_coords    
+                        x_list_pred, y_list_pred, _, char_size_pred = first_char_coords
                     continue
 
                 # Обработка маркированных списков
@@ -229,7 +229,7 @@ def extract_annotations_from_pdf(pdf_path, output_dir='json'):
                 if in_numbered_list:
                     first_char_coords = first_char_coords_and_size(text_line)
                     if first_char_coords:
-                        x_list, y_list0, y_list1, char_size = first_char_coords                
+                        x_list, y_list0, y_list1, char_size = first_char_coords
                         if (x_list - x_list_pred > 75) and (y_list1 - y_list_pred <= 49) and (char_size == char_size_pred):
                             annotations['numbered_list'].append(coords_transformed)
                             idx += 1
@@ -243,7 +243,7 @@ def extract_annotations_from_pdf(pdf_path, output_dir='json'):
                     first_char_coords = first_char_coords_and_size(text_line)
                     if first_char_coords:
                         x_list, y_list0, y_list1, char_size = first_char_coords
-                        if (x_list - x_list_pred > 75) and (y_list1 - y_list_pred <= 49) and (char_size == char_size_pred):                           
+                        if (x_list - x_list_pred > 75) and (y_list1 - y_list_pred <= 49) and (char_size == char_size_pred):
                             annotations['marked_list'].append(coords_transformed)
                             idx += 1
                             y_list_pred = y_list0
@@ -335,7 +335,8 @@ def extract_annotations_from_pdf(pdf_path, output_dir='json'):
                 "header": annotations["header"],
                 "footer": annotations["footer"],
                 "footnote": annotations["footnote"],
-                "formula": annotations["formula"]
+                "formula": annotations["formula"],
+                "graph": annotations["graph"]  # Добавлено поле для графиков
             }
 
             # Сохранение аннотаций
@@ -392,7 +393,7 @@ def is_centered_text(text_line, page_width, tolerance=20):
 
 def extract_annotations_with_pymupdf(pdf_path, output_dir='json'):
     """
-    Извлекает координаты элементов из PDF-файла с помощью PyMuPDF и добавляет аннотации формул и изображений.
+    Извлекает координаты элементов из PDF-файла с помощью PyMuPDF и добавляет аннотации формул, графиков и изображений.
     """
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
@@ -408,7 +409,7 @@ def extract_annotations_with_pymupdf(pdf_path, output_dir='json'):
         blocks = page_dict["blocks"]
 
         elements = []  # Список для хранения элементов страницы
-        pictures_type = []  # Список для хранения типов аннотаций ("formula", "image")
+        pictures_type = []  # Список для хранения типов аннотаций ("formula", "image", "graph")
 
         for block in blocks:
             if block['type'] == 0:  # Текстовый блок
@@ -428,11 +429,13 @@ def extract_annotations_with_pymupdf(pdf_path, output_dir='json'):
                             'text': text,
                             'bbox': coords_transformed
                         })
-                        # Проверяем на наличие символов "~" и "&"
+                        # Проверяем на наличие символов "~", "&" и "$"
                         if '~' in text:
                             pictures_type.append('formula')
-                        if '&' in text:
+                        elif '&' in text:
                             pictures_type.append('image')
+                        elif '$' in text:
+                            pictures_type.append('graph')
             elif block['type'] == 1:  # Изображение
                 bbox = block['bbox']
                 x0, y0, x1, y1 = bbox
@@ -476,7 +479,8 @@ def extract_annotations_with_pymupdf(pdf_path, output_dir='json'):
                 "header": [],
                 "footer": [],
                 "footnote": [],
-                "formula": []
+                "formula": [],
+                "graph": []  # Добавляем ключ 'graph'
             }
 
         # Добавляем аннотации из PyMuPDF к существующим аннотациям
@@ -484,8 +488,10 @@ def extract_annotations_with_pymupdf(pdf_path, output_dir='json'):
             if 'annotations' in element:
                 if 'formula' in element['annotations']:
                     json_data['formula'].append(element['bbox'])
-                if 'image' in element['annotations']:
+                elif 'image' in element['annotations']:
                     json_data['picture'].append(element['bbox'])
+                elif 'graph' in element['annotations']:
+                    json_data['graph'].append(element['bbox'])
 
         # Сохраняем обновленные аннотации
         with open(json_path, 'w', encoding='utf-8') as json_file:
