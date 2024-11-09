@@ -257,8 +257,34 @@ def extract_annotations_from_pdf(pdf_path, output_dir='json'):
                     if current_paragraph is not None:
                         annotations['paragraph'].append(current_paragraph)
                         current_paragraph = None
-                    annotations['picture_signature'].append(coords_transformed)
-                    idx += 1
+                    # Инициализируем объединенный бокс
+                    combined_coords = coords_transformed.copy()
+                    # Сохраняем размер шрифта и нижнюю координату Y текущего элемента
+                    current_font_size = font_size
+                    current_bottom_y = combined_coords[3]
+                    # Инициализируем индекс для просмотра следующих элементов
+                    idx_next = idx + 1
+                    while idx_next < len(elements):
+                        next_elem = elements[idx_next]
+                        next_font_size = next_elem['font_size']
+                        next_coords = next_elem['coords']
+                        # Проверяем, похож ли размер шрифта
+                        if abs(next_font_size - current_font_size) < 0.1:
+                            # Проверяем, близко ли расположены элементы по Y
+                            vertical_gap = next_coords[1] - current_bottom_y
+                            if 0 <= vertical_gap <= 20:
+                                # Обновляем объединенный бокс
+                                combined_coords[0] = min(combined_coords[0], next_coords[0])
+                                combined_coords[1] = min(combined_coords[1], next_coords[1])
+                                combined_coords[2] = max(combined_coords[2], next_coords[2])
+                                combined_coords[3] = max(combined_coords[3], next_coords[3])
+                                current_bottom_y = combined_coords[3]
+                                idx_next += 1
+                                continue
+                        break
+                    # Добавляем объединенный бокс в аннотации
+                    annotations['picture_signature'].append(combined_coords)
+                    idx = idx_next
                     continue
 
                 # Обработка подписей к таблицам
@@ -267,8 +293,34 @@ def extract_annotations_from_pdf(pdf_path, output_dir='json'):
                     if current_paragraph is not None:
                         annotations['paragraph'].append(current_paragraph)
                         current_paragraph = None
-                    annotations['table_signature'].append(coords_transformed)
-                    idx += 1
+                    # Инициализируем объединенный бокс
+                    combined_coords = coords_transformed.copy()
+                    # Сохраняем размер шрифта и нижнюю координату Y текущего элемента
+                    current_font_size = font_size
+                    current_bottom_y = combined_coords[3]
+                    # Инициализируем индекс для просмотра следующих элементов
+                    idx_next = idx + 1
+                    while idx_next < len(elements):
+                        next_elem = elements[idx_next]
+                        next_font_size = next_elem['font_size']
+                        next_coords = next_elem['coords']
+                        # Проверяем, похож ли размер шрифта
+                        if abs(next_font_size - current_font_size) < 0.1:
+                            # Проверяем, близко ли расположены элементы по Y
+                            vertical_gap = next_coords[1] - current_bottom_y
+                            if 0 <= vertical_gap <= 20:
+                                # Обновляем объединенный бокс
+                                combined_coords[0] = min(combined_coords[0], next_coords[0])
+                                combined_coords[1] = min(combined_coords[1], next_coords[1])
+                                combined_coords[2] = max(combined_coords[2], next_coords[2])
+                                combined_coords[3] = max(combined_coords[3], next_coords[3])
+                                current_bottom_y = combined_coords[3]
+                                idx_next += 1
+                                continue
+                        break
+                    # Добавляем объединенный бокс в аннотации
+                    annotations['table_signature'].append(combined_coords)
+                    idx = idx_next
                     continue
 
                 # Обработка формул
