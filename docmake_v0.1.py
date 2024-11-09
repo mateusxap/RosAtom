@@ -249,7 +249,7 @@ for doc_num in range(num_documents):
     footnote_num = 1  # Начальный номер сноски
 
     # Случайное количество разделов в документе
-    num_sections = random.randint(1, 5)
+    num_sections = random.randint(3, 7)
     for section_num in range(num_sections):
         if section_num != 0:
             document.add_section(WD_SECTION.NEW_PAGE)
@@ -294,8 +294,9 @@ for doc_num in range(num_documents):
         heading_text = fake.sentence(nb_words=random.randint(3, 7))
         heading = document.add_heading(heading_text, level=level)
         run = heading.runs[0]
-        run.font.bold = random.choice([True, False])
-        run.font.italic = random.choice([True, False])
+        choise_italic = random.choice([True, False])
+        run.font.italic = choise_italic
+        run.font.bold = random.choice([True, False]) or (not choise_italic)
         heading_size = random.randint(14, 24)
         run.font.size = Pt(heading_size)
         heading.alignment = WD_ALIGN_PARAGRAPH.CENTER if random.choice([True, False]) else WD_ALIGN_PARAGRAPH.LEFT
