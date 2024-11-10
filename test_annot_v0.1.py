@@ -346,7 +346,7 @@ def extract_annotations_from_pdf(pdf_path, output_dir='json'):
                     continue
 
                 # Обработка параграфов
-                if font_size >= average_font_size + 2 and (is_bold or is_italic):
+                if (font_size >= average_font_size + 1.5) and (is_bold or is_italic): #1.5 потому что может pdfminer странно считывает размер текста (не как в ворде). Из-за чего появляются ошибки
                     if current_paragraph is not None:
                         annotations['paragraph'].append(current_paragraph)
                         current_paragraph = None
