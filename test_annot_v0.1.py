@@ -73,6 +73,8 @@ def extract_annotations_from_pdf(pdf_path, output_dir='json'):
             in_numbered_list = False
             in_bulleted_list = False
             x_list_pred = y_list_pred = char_size_pred = 0
+            x_list_begin = y_list_begin = x_list_end = y_list_end = -1
+            indent = -1
 
             # Сбор информации о шрифтах и элементах
             for element in page_layout:
@@ -170,6 +172,9 @@ def extract_annotations_from_pdf(pdf_path, output_dir='json'):
                     idx += 1
                     continue
                 elif y1_scaled > footer_y_threshold:
+                    if (in_numbered_list):
+                        annotations['numbered_list'].append([x_list_begin, y_list_begin, x_list_end, y_list_end])
+                        x_list_begin = y_list_begin = x_list_end = y_list_end = -2
                     footer_elements.append(coords_transformed)
                     idx += 1
                     continue
@@ -209,18 +214,59 @@ def extract_annotations_from_pdf(pdf_path, output_dir='json'):
 
                 # Обработка нумерованных списков
                 numbered_match = re.match(r'^\s*\d+[\.\)]\s+', text)
-                if numbered_match:
+                if numbered_match and (not(in_numbered_list) or x_list_begin == -2):
                     if current_paragraph is not None:
                         annotations['paragraph'].append(current_paragraph)
                         current_paragraph = None
-                    annotations['numbered_list'].append(coords_transformed)
                     in_numbered_list = True
                     in_bulleted_list = False
                     idx += 1
+                    x_list_begin = coords_transformed[0]
+                    y_list_begin = coords_transformed[1]
+                    x_list_end = coords_transformed[2]
+                    y_list_end = coords_transformed[3]
                     first_char_coords = first_char_coords_and_size(text_line)
                     if first_char_coords:
                         x_list_pred, y_list_pred, _, char_size_pred = first_char_coords
                     continue
+
+                # Продолжение нумерованного списка
+                if in_numbered_list:
+                    first_char_coords = first_char_coords_and_size(text_line)
+                    if first_char_coords:
+                        x_list, y_list0, y_list1, char_size = first_char_coords
+                        if x_list_begin == -2:
+                            x_list_begin = coords_transformed[0]
+                            y_list_begin = coords_transformed[1]       
+                        is_num = False
+                        is_let = False
+                        for char in text_line:
+                            if char.get_text().isnumeric():
+                                is_num = True
+                            elif char.get_text().isalpha():
+                                is_let = True
+                            break                  
+                        if indent == -1 and is_let:
+                            indent = x_list - x_list_pred
+
+                        if ((is_num and x_list == x_list_pred) or (is_let and x_list - x_list_pred > 75)) and (y_list1 - y_list_pred <= 65) and (char_size == char_size_pred):
+                            if (y_list_begin > y_list1):
+                                annotations['numbered_list'].append([x_list_begin, y_list_begin, x_list_end, y_list_end])
+                                x_list_begin = coords_transformed[0] - indent
+                                y_list_begin = coords_transformed[1]          
+                            if coords_transformed[2] > x_list_end:
+                                x_list_end = coords_transformed[2]
+                            y_list_end = coords_transformed[3]
+                            idx += 1
+                            if idx == len(elements):
+                                annotations['numbered_list'].append([x_list_begin, y_list_begin, x_list_end, y_list_end])
+                            y_list_pred = y_list0
+                            continue
+                        else:
+                            annotations['numbered_list'].append([x_list_begin, y_list_begin, x_list_end, y_list_end])
+                            in_numbered_list = False
+                            x_list_begin = y_list_begin = x_list_end = y_list_end = indent = -1
+                            continue 
 
                 # Обработка маркированных списков
                 bulleted_match = re.match(r'^\s*[' + re.escape(bullet_chars) + r']\s+', text)
@@ -236,19 +282,6 @@ def extract_annotations_from_pdf(pdf_path, output_dir='json'):
                     if first_char_coords:
                         x_list_pred, y_list_pred, _, char_size_pred = first_char_coords
                     continue
-
-                # Продолжение нумерованного списка
-                if in_numbered_list:
-                    first_char_coords = first_char_coords_and_size(text_line)
-                    if first_char_coords:
-                        x_list, y_list0, y_list1, char_size = first_char_coords
-                        if (x_list - x_list_pred > 75) and (y_list1 - y_list_pred <= 49) and (char_size == char_size_pred):
-                            annotations['numbered_list'].append(coords_transformed)
-                            idx += 1
-                            y_list_pred = y_list0
-                            continue
-                        else:
-                            in_numbered_list = False
 
                 # Продолжение маркированного списка
                 if in_bulleted_list:
