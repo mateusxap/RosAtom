@@ -409,7 +409,7 @@ for doc_num in range(num_documents):
             run.font.name = 'Times New Roman'
 
             # Случайно добавляем сноску
-            if random.choice([True, False, False]):  # Увеличиваем вероятность добавления сносок
+            if random.choice([False, False, True, False, False]):
                 footnote_text = fake.sentence(nb_words=5)
                 add_footnote(paragraph, footnote_text, footnote_num, footnotes)
                 footnote_num += 1
@@ -618,7 +618,7 @@ for doc_num in range(num_documents):
             run.font.name = 'Times New Roman'
 
             # Случайно добавляем сноску
-            if random.choice([True, False, False]):  # Увеличиваем вероятность добавления сносок
+            if random.choice([False, False, True, False, False]):
                 footnote_text = fake.sentence(nb_words=5)
                 add_footnote(paragraph, footnote_text, footnote_num, footnotes)
                 footnote_num += 1
