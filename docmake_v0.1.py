@@ -359,14 +359,14 @@ for doc_num in range(num_documents):
             cols.set(qn('w:num'), '1')
 
         # Случайно решаем, добавлять ли верхний колонтитул
-        if random.choice([True, False]):
+        if random.choice([True, False, False]):
             # Добавляем верхний колонтитул
             header = current_section.header
             header_paragraph = header.paragraphs[0]
             header_paragraph.text = fake.sentence(nb_words=random.randint(1, 6))
 
         # Случайно решаем, добавлять ли нижний колонтитул
-        if random.choice([True, False]):
+        if random.choice([True, False, False]):
             # Добавляем нижний колонтитул
             footer = current_section.footer
             footer_paragraph = footer.paragraphs[0]
@@ -550,7 +550,7 @@ for doc_num in range(num_documents):
                     print(f"Ошибка при добавлении изображения: {e}")
 
         # Добавляем нумерованный список
-        list_font_size = random.randint(8, 16)
+        list_font_size = random.randint(11, 16)
         list_font_size_pt = Pt(list_font_size)
         list_line_spacing = random.uniform(1.0, 1.5)
 
@@ -569,10 +569,10 @@ for doc_num in range(num_documents):
             run.font.name = 'Times New Roman'
 
         # Устанавливаем размер шрифта для номеров списка
-        set_numbering_font_size(document, list_font_size)
+        set_numbering_font_size(document, 12)
 
         # Добавляем маркированный список
-        bullet_list_font_size = random.randint(8, 16)
+        bullet_list_font_size = random.randint(11, 16)
         bullet_list_font_size_pt = Pt(bullet_list_font_size)
         bullet_list_line_spacing = random.uniform(1.0, 1.5)
 
@@ -591,10 +591,7 @@ for doc_num in range(num_documents):
             run.font.name = 'Times New Roman'
 
         # Устанавливаем размер шрифта для маркеров списка
-        set_numbering_font_size(document, bullet_list_font_size)
-
-        # Устанавливаем размер шрифта для маркеров списка
-        set_numbering_font_size(document, bullet_list_font_size)
+        set_numbering_font_size(document, 12)
 
         # Добавляем абзац текста с возможными сносками
         paragraph = document.add_paragraph(fake.text(max_nb_chars=random.randint(500, 1000)))
