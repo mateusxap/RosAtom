@@ -241,6 +241,7 @@ def extract_annotations_from_pdf(pdf_path, output_dir='json'):
                         if x_list_begin == -2:
                             x_list_begin = coords_transformed[0]
                             y_list_begin = coords_transformed[1]       
+                        
                         is_num = False
                         for char in text_line:
                             is_num = char.get_text().isnumeric()
@@ -248,17 +249,20 @@ def extract_annotations_from_pdf(pdf_path, output_dir='json'):
                         if indent == -1 and not(is_num):
                             indent = x_list - x_list_pred
 
-                        if ((is_num and x_list == x_list_pred) or x_list - x_list_pred > 75) and (y_list1 - y_list_pred <= 63) and (char_size == char_size_pred):
-                            if (y_list_begin > y_list1):
-                                annotations['numbered_list'].append([x_list_begin, y_list_begin, x_list_end, y_list_end])
+                        if ((is_num and x_list == x_list_pred) or x_list - x_list_pred >= 75) and (y_list1 - y_list_pred <= 63) and (char_size == char_size_pred):
+                            if (y_list_begin >= y_list1):
+                                if x_list_end != -2:
+                                    annotations['numbered_list'].append([x_list_begin, y_list_begin, x_list_end, y_list_end])
                                 x_list_begin = coords_transformed[0]
                                 if not(is_num):
                                     x_list_begin -= indent
                                 y_list_begin = coords_transformed[1]          
+                            
                             if coords_transformed[2] > x_list_end:
                                 x_list_end = coords_transformed[2]
                             y_list_end = coords_transformed[3]
-                            idx += 1
+                            
+                            idx += 1                            
                             if idx == len(elements):
                                 annotations['numbered_list'].append([x_list_begin, y_list_begin, x_list_end, y_list_end])
                             y_list_pred = y_list0
@@ -295,6 +299,7 @@ def extract_annotations_from_pdf(pdf_path, output_dir='json'):
                         if x_list_begin == -2:
                             x_list_begin = coords_transformed[0]
                             y_list_begin = coords_transformed[1]
+                        
                         is_bullet = False
                         for char in text_line:
                             is_bullet = char.get_text() in bullet_chars
@@ -302,17 +307,20 @@ def extract_annotations_from_pdf(pdf_path, output_dir='json'):
                         if indent == -1 and not(is_bullet):
                             indent = x_list - x_list_pred
 
-                        if ((is_bullet and x_list == x_list_pred) or x_list - x_list_pred > 75) and (y_list1 - y_list_pred <= 63) and (char_size == char_size_pred):
-                            if (y_list_begin > y_list1):
-                                annotations['marked_list'].append([x_list_begin, y_list_begin, x_list_end, y_list_end])
+                        if ((is_bullet and x_list == x_list_pred) or x_list - x_list_pred >= 75) and (y_list1 - y_list_pred <= 63) and (char_size == char_size_pred):
+                            if (y_list_begin >= y_list1):
+                                if x_list_end != -2:
+                                    annotations['marked_list'].append([x_list_begin, y_list_begin, x_list_end, y_list_end])
                                 x_list_begin = coords_transformed[0]
                                 if not(is_bullet):
                                     x_list_begin -= indent
                                 y_list_begin = coords_transformed[1]          
+                            
                             if coords_transformed[2] > x_list_end:
                                 x_list_end = coords_transformed[2]
                             y_list_end = coords_transformed[3]
-                            idx += 1
+                            
+                            idx += 1                           
                             if idx == len(elements):
                                 annotations['marked_list'].append([x_list_begin, y_list_begin, x_list_end, y_list_end])
                             y_list_pred = y_list0
