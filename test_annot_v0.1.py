@@ -172,10 +172,10 @@ def extract_annotations_from_pdf(pdf_path, output_dir='json'):
                     idx += 1
                     continue
                 elif y1_scaled > footer_y_threshold:
-                    if (in_numbered_list):
+                    if in_numbered_list:
                         annotations['numbered_list'].append([x_list_begin, y_list_begin, x_list_end, y_list_end])
                         x_list_begin = y_list_begin = x_list_end = y_list_end = -2
-                    if (in_bulleted_list):
+                    if in_bulleted_list:
                         annotations['marked_list'].append([x_list_begin, y_list_begin, x_list_end, y_list_end])
                         x_list_begin = y_list_begin = x_list_end = y_list_end = -2
                     footer_elements.append(coords_transformed)
@@ -221,8 +221,12 @@ def extract_annotations_from_pdf(pdf_path, output_dir='json'):
                     if current_paragraph is not None:
                         annotations['paragraph'].append(current_paragraph)
                         current_paragraph = None
+
                     in_numbered_list = True
-                    in_bulleted_list = False
+                    if in_bulleted_list:
+                        annotations['marked_list'].append([x_list_begin, y_list_begin, x_list_end, y_list_end])
+                        in_bulleted_list = False                    
+                    
                     idx += 1
                     x_list_begin = coords_transformed[0]
                     y_list_begin = coords_transformed[1]
@@ -243,19 +247,22 @@ def extract_annotations_from_pdf(pdf_path, output_dir='json'):
                             y_list_begin = coords_transformed[1]       
                         
                         is_num = False
+                        is_let = False
                         for char in text_line:
                             is_num = char.get_text().isnumeric()
+                            is_let = char.get_text().isalpha()
                             break                  
-                        if indent == -1 and not(is_num):
+                        if indent == -1 and is_let:
                             indent = x_list - x_list_pred
 
-                        if ((is_num and x_list == x_list_pred) or x_list - x_list_pred >= 75) and (y_list1 - y_list_pred <= 63) and (char_size == char_size_pred):
-                            if (y_list_begin >= y_list1):
+                        if ((is_num and x_list == x_list_pred) or (is_let and x_list - x_list_pred >= 75)) and (y_list1 - y_list_pred <= 65) and (char_size == char_size_pred):
+                            if y_list_begin >= y_list1:
                                 if x_list_end != -2:
                                     annotations['numbered_list'].append([x_list_begin, y_list_begin, x_list_end, y_list_end])
                                 x_list_begin = coords_transformed[0]
                                 if not(is_num):
                                     x_list_begin -= indent
+                                x_list_pred = x_list_begin
                                 y_list_begin = coords_transformed[1]          
                             
                             if coords_transformed[2] > x_list_end:
@@ -268,7 +275,8 @@ def extract_annotations_from_pdf(pdf_path, output_dir='json'):
                             y_list_pred = y_list0
                             continue
                         else:
-                            annotations['numbered_list'].append([x_list_begin, y_list_begin, x_list_end, y_list_end])
+                            if x_list_end != -2:
+                                annotations['numbered_list'].append([x_list_begin, y_list_begin, x_list_end, y_list_end])
                             in_numbered_list = False
                             x_list_begin = y_list_begin = x_list_end = y_list_end = indent = -1
                             continue 
@@ -279,8 +287,10 @@ def extract_annotations_from_pdf(pdf_path, output_dir='json'):
                     if current_paragraph is not None:
                         annotations['paragraph'].append(current_paragraph)
                         current_paragraph = None
+                    
                     in_bulleted_list = True
                     in_numbered_list = False
+                    
                     idx += 1
                     x_list_begin = coords_transformed[0]
                     y_list_begin = coords_transformed[1]
@@ -301,19 +311,22 @@ def extract_annotations_from_pdf(pdf_path, output_dir='json'):
                             y_list_begin = coords_transformed[1]
                         
                         is_bullet = False
+                        is_let = False
                         for char in text_line:
                             is_bullet = char.get_text() in bullet_chars
+                            is_let = char.get_text().isalpha()
                             break                  
-                        if indent == -1 and not(is_bullet):
+                        if indent == -1 and is_let:
                             indent = x_list - x_list_pred
 
-                        if ((is_bullet and x_list == x_list_pred) or x_list - x_list_pred >= 75) and (y_list1 - y_list_pred <= 63) and (char_size == char_size_pred):
-                            if (y_list_begin >= y_list1):
+                        if ((is_bullet and x_list == x_list_pred) or (is_let and x_list - x_list_pred >= 75)) and (y_list1 - y_list_pred <= 65) and (char_size == char_size_pred):
+                            if y_list_begin >= y_list1:
                                 if x_list_end != -2:
                                     annotations['marked_list'].append([x_list_begin, y_list_begin, x_list_end, y_list_end])
                                 x_list_begin = coords_transformed[0]
                                 if not(is_bullet):
                                     x_list_begin -= indent
+                                x_list_pred = x_list_begin
                                 y_list_begin = coords_transformed[1]          
                             
                             if coords_transformed[2] > x_list_end:
@@ -326,7 +339,8 @@ def extract_annotations_from_pdf(pdf_path, output_dir='json'):
                             y_list_pred = y_list0
                             continue
                         else:
-                            annotations['marked_list'].append([x_list_begin, y_list_begin, x_list_end, y_list_end])
+                            if x_list_end != -2:
+                                annotations['marked_list'].append([x_list_begin, y_list_begin, x_list_end, y_list_end])
                             in_bulleted_list = False
                             x_list_begin = y_list_begin = x_list_end = y_list_end = indent = -1
                             continue
