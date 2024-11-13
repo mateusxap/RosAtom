@@ -660,7 +660,7 @@ def extract_annotations_with_pymupdf(pdf_path, output_dir='json'):
         # Собираем все существующие боксы, чтобы избежать пересечений
         existing_boxes = []
         for key in ['title', 'table', 'picture', 'table_signature', 'picture_signature', 'numbered_list', 'marked_list',
-                    'header', 'footer', 'footnote', 'formula', 'graph']:
+                    'header', 'footer', 'formula', 'graph']:
             existing_boxes.extend(json_data.get(key, []))
 
         # Фильтруем текстовые элементы, не пересекающиеся с существующими боксами
@@ -683,9 +683,7 @@ def extract_annotations_with_pymupdf(pdf_path, output_dir='json'):
                 paragraph_elements.append(elem)
 
         # Группируем элементы в столбцы на основе координаты x0
-        # Здесь вы можете регулировать порог для определения нового столбца
-        threshold = 200  # Порог для определения нового столбца (измените это значение по необходимости)
-
+        threshold = 200
         # Собираем элементы с их x0 и y0 координатами
         sorted_elements = paragraph_elements
         columns = []
