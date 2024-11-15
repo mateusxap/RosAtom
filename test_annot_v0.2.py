@@ -71,13 +71,6 @@ def extract_annotations_from_pdf(pdf_path, output_dir='json'):
             # Добавляем координаты таблиц в аннотации
             annotations['table'].extend(table_bboxes)
 
-            # Флаги для управления состоянием списков
-            in_numbered_list = False
-            in_bulleted_list = False
-            x_list_pred = y_list_pred = char_size_pred = 0
-            x_list_begin = y_list_begin = x_list_end = y_list_end = -1
-            indent = -1
-
             # Сбор информации о шрифтах и элементах, за исключением параграфов
             for element in page_layout:
                 if isinstance(element, LTTextBoxHorizontal):
@@ -154,10 +147,9 @@ def extract_annotations_from_pdf(pdf_path, output_dir='json'):
             # Убираем обработку параграфов в pdfminer
             # Все параграфы будут обрабатываться в PyMuPDF
 
-            # Обработка заголовков и списков
+            # Обработка заголовков
             idx = 0
             current_title = None
-            bullet_chars = '•◦●○▪–—*-·•‣⁃▪■❖➤►▶‣⁌⁍'
             while idx < len(elements):
                 elem = elements[idx]
                 text_line = elem['text_line']
@@ -177,12 +169,6 @@ def extract_annotations_from_pdf(pdf_path, output_dir='json'):
                     idx += 1
                     continue
                 elif y1_scaled > footer_y_threshold:
-                    if in_numbered_list:
-                        annotations['numbered_list'].append([x_list_begin, y_list_begin, x_list_end, y_list_end])
-                        x_list_begin = y_list_begin = x_list_end = y_list_end = -2
-                    if in_bulleted_list:
-                        annotations['marked_list'].append([x_list_begin, y_list_begin, x_list_end, y_list_end])
-                        x_list_begin = y_list_begin = x_list_end = y_list_end = -2
                     footer_elements.append(coords_transformed)
                     idx += 1
                     continue
@@ -203,22 +189,7 @@ def extract_annotations_from_pdf(pdf_path, output_dir='json'):
                                     x1_br = char.bbox[2] * SCALING_FACTOR
                                     y1_br = page_height - char.bbox[1] * SCALING_FACTOR
                                     annotations['footnote'].append([x0_br, y0_br, x1_br, y1_br])
-                                    break
-
-                # Функция для получения координат первого символа
-                def first_char_coords_and_size(text_line):
-                    is_first_char = True
-                    x0_char = y0_char = y1_char = 0
-                    for char in text_line:
-                        if isinstance(char, LTChar):
-                            if is_first_char:
-                                x0_char = char.bbox[0] * SCALING_FACTOR
-                                y0_char = page_height - char.bbox[1] * SCALING_FACTOR
-                                y1_char = page_height - char.bbox[3] * SCALING_FACTOR
-                                is_first_char = False
-                            if char.get_text().isalpha():
-                                return [x0_char, y0_char, y1_char, round(char.size)]
-                    return None               
+                                    break            
 
                 # Обработка подписей к рисункам
                 figure_signature_match = re.match(r'^\s*(рис\.?|рисунок)\s*\d+', text.lower())
@@ -523,14 +494,17 @@ def extract_annotations_with_pymupdf(pdf_path, output_dir='json'):
         # Флаги для управления состоянием
         in_numbered_list = False
         in_bulleted_list = False
-        x_list_pred = y_list_pred = char_size_pred = 0
-        x_list_begin = y_list_begin = -1
-        x_list_end = y_list_end = -1
-        indent = -1
-
-        text_elements = [elem for elem in elements if elem['type'] == 'text']
         
         idx = 0
+        indent = -1
+        x_list_pred = y_list_pred = char_size_pred = 0
+        x_list_begin = y_list_begin = -1
+        x_list_end = y_list_end = -1       
+        bullet_chars = '•◦●○▪–—*-·•‣⁃▪■❖➤►▶‣⁌⁍'
+
+        text_elements = [elem for elem in elements if elem['type'] == 'text']
+
+        # Цикл по текстовым элементам страницы     
         while idx < len(text_elements):                
             text = text_elements[idx]['text']            
             if text == ' ':
@@ -538,6 +512,9 @@ def extract_annotations_with_pymupdf(pdf_path, output_dir='json'):
                 if idx == len(text_elements):
                     if in_numbered_list:
                         json_data['numbered_list'].append(
+                            [x_list_begin, y_list_begin, x_list_end, y_list_end])
+                    if in_bulleted_list:
+                        json_data['marked_list'].append(
                             [x_list_begin, y_list_begin, x_list_end, y_list_end])
                 continue
             coords_transformed = text_elements[idx]['bbox']
@@ -549,7 +526,6 @@ def extract_annotations_with_pymupdf(pdf_path, output_dir='json'):
                 if in_bulleted_list:
                     json_data['marked_list'].append([x_list_begin, y_list_begin, x_list_end, y_list_end])
                     in_bulleted_list = False
-
                 idx += 2
                 x_list_begin, y_list_begin, _, y_list_end = coords_transformed
                 x_list_end = text_elements[idx]['bbox'][2]
@@ -572,11 +548,12 @@ def extract_annotations_with_pymupdf(pdf_path, output_dir='json'):
                     coords_transformed = text_elements[idx]['bbox']
                     text = text_elements[idx]['text']
                 else:
-                    char_size = round(text_elements[idx]['font_size'])
+                    char_size = round(text_elements[idx]['font_size'])                
                 if indent == -1 and is_let:
                     indent = x_list - x_list_pred
+                x_dif = x_list - x_list_pred
 
-                if ((is_num and abs(x_list - x_list_pred) < 0.00001) or (is_let and x_list - x_list_pred >= 75)) and (
+                if ((is_num and abs(x_list - x_list_pred) < 0.001) or (is_let and (abs(x_dif - 75) < 0.001 or x_dif > 500))) and (
                          y_list0 - y_list_pred <= 65) and (char_size == char_size_pred):
                     if y_list_begin > y_list0:
                         json_data['numbered_list'].append(
@@ -605,6 +582,68 @@ def extract_annotations_with_pymupdf(pdf_path, output_dir='json'):
                     in_numbered_list = False
                     indent = -1
                     continue
+            
+            # Обработка маркированных списков 
+            bulleted_match = re.match(r'^\s*[' + re.escape(bullet_chars) + r']\s*', text)
+            if bulleted_match and not in_bulleted_list:
+                in_bulleted_list = True
+                in_numbered_list = False
+                idx += 2
+                x_list_begin, y_list_begin, _, y_list_end = coords_transformed
+                x_list_end = text_elements[idx]['bbox'][2]
+                x_list_pred = coords_transformed[0]
+                y_list_pred = coords_transformed[3]
+                char_size_pred = round(text_elements[idx]['font_size'])
+                idx += 1
+                continue
+            
+            # Продолжение маркированного списка
+            if in_bulleted_list:
+                x_list, y_list0, _, y_list1 = coords_transformed                
+                is_bullet = text[0] in bullet_chars
+                is_let = text[0].isalpha()
+                char_size = -1
+
+                if is_bullet:                    
+                    idx += 2
+                    char_size = round(text_elements[idx]['font_size'])
+                    coords_transformed = text_elements[idx]['bbox']
+                    text = text_elements[idx]['text']
+                else:
+                    char_size = round(text_elements[idx]['font_size'])
+                if indent == -1 and is_let:
+                    indent = x_list - x_list_pred
+                x_dif = x_list - x_list_pred
+
+                if ((is_bullet and abs(x_list - x_list_pred) < 0.001) or (is_let and (abs(x_dif - 75) < 0.001 or x_dif > 500))) and (
+                         y_list0 - y_list_pred <= 65) and (char_size == char_size_pred):
+                    if y_list_begin > y_list0:
+                        json_data['marked_list'].append(
+                            [x_list_begin, y_list_begin, x_list_end, y_list_end])
+                        x_list_begin = coords_transformed[0]
+                        if not is_bullet:
+                            x_list_begin -= indent
+                        x_list_pred = x_list_begin
+                        y_list_begin = coords_transformed[1]
+
+                    if coords_transformed[2] > x_list_end: 
+                         x_list_end = coords_transformed[2]
+                    y_list_end = coords_transformed[3]
+
+                    idx += 1
+                    if idx == len(text_elements):
+                        json_data['marked_list'].append(
+                            [x_list_begin, y_list_begin, x_list_end, y_list_end])
+                    y_list_pred = y_list1
+                    continue
+                else:
+                    if is_bullet:
+                        idx -= 2
+                    json_data['marked_list'].append(
+                        [x_list_begin, y_list_begin, x_list_end, y_list_end])
+                    in_bulleted_list = False
+                    indent = -1
+                    continue
 
             idx += 1
 
@@ -616,7 +655,6 @@ def extract_annotations_with_pymupdf(pdf_path, output_dir='json'):
             existing_boxes.extend(json_data.get(key, []))
 
         # Фильтруем текстовые элементы, не пересекающиеся с существующими боксами
-        #text_elements = [elem for elem in elements if elem['type'] == 'text']
         filtered_text_elements = []
         for elem in text_elements:
             overlaps = False
