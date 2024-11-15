@@ -218,145 +218,7 @@ def extract_annotations_from_pdf(pdf_path, output_dir='json'):
                                 is_first_char = False
                             if char.get_text().isalpha():
                                 return [x0_char, y0_char, y1_char, round(char.size)]
-                    return None
-
-                # Обработка нумерованных списков
-                numbered_match = re.match(r'^\s*\d+[\.\)]\s+', text)
-                if numbered_match and (not in_numbered_list or x_list_begin == -2):
-                    if current_title is not None:
-                        # Не добавляем параграф, т.к. он не обрабатывается здесь
-                        current_title = None
-
-                    in_numbered_list = True
-                    if in_bulleted_list:
-                        annotations['marked_list'].append([x_list_begin, y_list_begin, x_list_end, y_list_end])
-                        in_bulleted_list = False
-
-                    idx += 1
-                    x_list_begin = coords_transformed[0]
-                    y_list_begin = coords_transformed[1]
-                    x_list_end = coords_transformed[2]
-                    y_list_end = coords_transformed[3]
-                    first_char_coords = first_char_coords_and_size(text_line)
-                    if first_char_coords:
-                        x_list_pred, y_list_pred, _, char_size_pred = first_char_coords
-                    continue
-
-                # Продолжение нумерованного списка
-                if in_numbered_list:
-                    first_char_coords = first_char_coords_and_size(text_line)
-                    if first_char_coords:
-                        x_list, y_list0, y_list1, char_size = first_char_coords
-                        if x_list_begin == -2:
-                            x_list_begin = coords_transformed[0]
-                            y_list_begin = coords_transformed[1]
-
-                        is_num = False
-                        is_let = False
-                        for char in text_line:
-                            is_num = char.get_text().isnumeric()
-                            is_let = char.get_text().isalpha()
-                            break
-                        if indent == -1 and is_let:
-                            indent = x_list - x_list_pred
-
-                        if ((is_num and x_list == x_list_pred) or (is_let and x_list - x_list_pred >= 75)) and (
-                                y_list1 - y_list_pred <= 65) and (char_size == char_size_pred):
-                            if y_list_begin >= y_list1:
-                                if x_list_end != -2:
-                                    annotations['numbered_list'].append(
-                                        [x_list_begin, y_list_begin, x_list_end, y_list_end])
-                                x_list_begin = coords_transformed[0]
-                                if not is_num:
-                                    x_list_begin -= indent
-                                x_list_pred = x_list_begin
-                                y_list_begin = coords_transformed[1]
-
-                            if coords_transformed[2] > x_list_end:
-                                x_list_end = coords_transformed[2]
-                            y_list_end = coords_transformed[3]
-
-                            idx += 1
-                            if idx == len(elements):
-                                annotations['numbered_list'].append(
-                                    [x_list_begin, y_list_begin, x_list_end, y_list_end])
-                            y_list_pred = y_list0
-                            continue
-                        else:
-                            if x_list_end != -2:
-                                annotations['numbered_list'].append(
-                                    [x_list_begin, y_list_begin, x_list_end, y_list_end])
-                            in_numbered_list = False
-                            x_list_begin = y_list_begin = x_list_end = y_list_end = indent = -1
-                            continue
-
-                # Обработка маркированных списков
-                bulleted_match = re.match(r'^\s*[' + re.escape(bullet_chars) + r']\s+', text)
-                if bulleted_match and (not in_bulleted_list or x_list_begin == -2):
-                    if current_title is not None:
-                        # Не добавляем параграф, т.к. он не обрабатывается здесь
-                        current_title = None
-
-                    in_bulleted_list = True
-                    in_numbered_list = False
-
-                    idx += 1
-                    x_list_begin = coords_transformed[0]
-                    y_list_begin = coords_transformed[1]
-                    x_list_end = coords_transformed[2]
-                    y_list_end = coords_transformed[3]
-                    first_char_coords = first_char_coords_and_size(text_line)
-                    if first_char_coords:
-                        x_list_pred, y_list_pred, _, char_size_pred = first_char_coords
-                    continue
-
-                # Продолжение маркированного списка
-                if in_bulleted_list:
-                    first_char_coords = first_char_coords_and_size(text_line)
-                    if first_char_coords:
-                        x_list, y_list0, y_list1, char_size = first_char_coords
-                        if x_list_begin == -2:
-                            x_list_begin = coords_transformed[0]
-                            y_list_begin = coords_transformed[1]
-
-                        is_bullet = False
-                        is_let = False
-                        for char in text_line:
-                            is_bullet = char.get_text() in bullet_chars
-                            is_let = char.get_text().isalpha()
-                            break
-                        if indent == -1 and is_let:
-                            indent = x_list - x_list_pred
-
-                        if ((is_bullet and x_list == x_list_pred) or (is_let and x_list - x_list_pred >= 75)) and (
-                                y_list1 - y_list_pred <= 65) and (char_size == char_size_pred):
-                            if y_list_begin >= y_list1:
-                                if x_list_end != -2:
-                                    annotations['marked_list'].append(
-                                        [x_list_begin, y_list_begin, x_list_end, y_list_end])
-                                x_list_begin = coords_transformed[0]
-                                if not is_bullet:
-                                    x_list_begin -= indent
-                                x_list_pred = x_list_begin
-                                y_list_begin = coords_transformed[1]
-
-                            if coords_transformed[2] > x_list_end:
-                                x_list_end = coords_transformed[2]
-                            y_list_end = coords_transformed[3]
-
-                            idx += 1
-                            if idx == len(elements):
-                                annotations['marked_list'].append(
-                                    [x_list_begin, y_list_begin, x_list_end, y_list_end])
-                            y_list_pred = y_list0
-                            continue
-                        else:
-                            if x_list_end != -2:
-                                annotations['marked_list'].append(
-                                    [x_list_begin, y_list_begin, x_list_end, y_list_end])
-                            in_bulleted_list = False
-                            x_list_begin = y_list_begin = x_list_end = y_list_end = indent = -1
-                            continue
+                    return None               
 
                 # Обработка подписей к рисункам
                 figure_signature_match = re.match(r'^\s*(рис\.?|рисунок)\s*\d+', text.lower())
@@ -577,6 +439,7 @@ def extract_annotations_with_pymupdf(pdf_path, output_dir='json'):
                     for span in line['spans']:
                         text = span['text']
                         bbox = span['bbox']  # [x0, y0, x1, y1]
+                        font_size = span['size']
                         x0, y0, x1, y1 = bbox
                         # Преобразуем координаты в нужный формат
                         x0_scaled = x0 * SCALING_FACTOR
@@ -589,7 +452,8 @@ def extract_annotations_with_pymupdf(pdf_path, output_dir='json'):
                             'type': 'text',
                             'text': text,
                             'bbox': coords_transformed,
-                            'char_count': char_count  # Добавлено: количество символов
+                            'char_count': char_count,  # Добавлено: количество символов
+                            'font_size': font_size # Добавлено: размер шрифта
                         })
                         # Проверяем на наличие символов "~", "&" и "$"
                         if '~' in text:
@@ -656,6 +520,94 @@ def extract_annotations_with_pymupdf(pdf_path, output_dir='json'):
                 elif element['annotations'] == 'graph':
                     json_data['graph'].append(element['bbox'])
 
+        # Флаги для управления состоянием
+        in_numbered_list = False
+        in_bulleted_list = False
+        x_list_pred = y_list_pred = char_size_pred = 0
+        x_list_begin = y_list_begin = -1
+        x_list_end = y_list_end = -1
+        indent = -1
+
+        text_elements = [elem for elem in elements if elem['type'] == 'text']
+        
+        idx = 0
+        while idx < len(text_elements):                
+            text = text_elements[idx]['text']            
+            if text == ' ':
+                idx += 1
+                if idx == len(text_elements):
+                    if in_numbered_list:
+                        json_data['numbered_list'].append(
+                            [x_list_begin, y_list_begin, x_list_end, y_list_end])
+                continue
+            coords_transformed = text_elements[idx]['bbox']
+
+            # Обработка нумерованных списков 
+            numbered_match = re.match(r'^\s*\d+[\.\)]\s*', text)
+            if numbered_match and not in_numbered_list:
+                in_numbered_list = True
+                if in_bulleted_list:
+                    json_data['marked_list'].append([x_list_begin, y_list_begin, x_list_end, y_list_end])
+                    in_bulleted_list = False
+
+                idx += 2
+                x_list_begin, y_list_begin, _, y_list_end = coords_transformed
+                x_list_end = text_elements[idx]['bbox'][2]
+                x_list_pred = coords_transformed[0]
+                y_list_pred = coords_transformed[3]
+                char_size_pred = round(text_elements[idx]['font_size'])
+                idx += 1
+                continue
+
+            # Продолжение нумерованного списка
+            if in_numbered_list:
+                x_list, y_list0, _, y_list1 = coords_transformed                
+                is_num = re.match(r'^\s*\d+[\.\)]\s*', text) is not None
+                is_let = text[0].isalpha()
+                char_size = -1
+
+                if is_num:                    
+                    idx += 2
+                    char_size = round(text_elements[idx]['font_size'])
+                    coords_transformed = text_elements[idx]['bbox']
+                    text = text_elements[idx]['text']
+                else:
+                    char_size = round(text_elements[idx]['font_size'])
+                if indent == -1 and is_let:
+                    indent = x_list - x_list_pred
+
+                if ((is_num and abs(x_list - x_list_pred) < 0.00001) or (is_let and x_list - x_list_pred >= 75)) and (
+                         y_list0 - y_list_pred <= 65) and (char_size == char_size_pred):
+                    if y_list_begin > y_list0:
+                        json_data['numbered_list'].append(
+                            [x_list_begin, y_list_begin, x_list_end, y_list_end])
+                        x_list_begin = coords_transformed[0]
+                        if not is_num:
+                            x_list_begin -= indent
+                        x_list_pred = x_list_begin
+                        y_list_begin = coords_transformed[1]
+
+                    if coords_transformed[2] > x_list_end: 
+                         x_list_end = coords_transformed[2]
+                    y_list_end = coords_transformed[3]
+
+                    idx += 1
+                    if idx == len(text_elements):
+                        json_data['numbered_list'].append(
+                            [x_list_begin, y_list_begin, x_list_end, y_list_end])
+                    y_list_pred = y_list1
+                    continue
+                else:
+                    if is_num:
+                        idx -= 2
+                    json_data['numbered_list'].append(
+                        [x_list_begin, y_list_begin, x_list_end, y_list_end])
+                    in_numbered_list = False
+                    indent = -1
+                    continue
+
+            idx += 1
+
         # Обработка параграфов
         # Собираем все существующие боксы, чтобы избежать пересечений
         existing_boxes = []
@@ -664,7 +616,7 @@ def extract_annotations_with_pymupdf(pdf_path, output_dir='json'):
             existing_boxes.extend(json_data.get(key, []))
 
         # Фильтруем текстовые элементы, не пересекающиеся с существующими боксами
-        text_elements = [elem for elem in elements if elem['type'] == 'text']
+        #text_elements = [elem for elem in elements if elem['type'] == 'text']
         filtered_text_elements = []
         for elem in text_elements:
             overlaps = False
