@@ -91,17 +91,23 @@ def main():
     processor = DetrImageProcessor.from_pretrained(model_name)
     model = DeformableDetrForObjectDetection.from_pretrained(model_name)
 
-    # Распечатка структуры модели для определения правильных атрибутов
-    print("Структура модели:")
-    print(model)
-
     # Создание пользовательского датасета
     dataset = CustomCocoDataset(train_images_dir, train_annotations_file, processor)
     num_classes = dataset.num_classes
-    num_labels = num_classes + 1  # Добавляем 1 для класса "no object"
+    num_labels = num_classes  # Поскольку категории уже учитывают количество классов
 
-    # Обновление количества меток в конфигурации модели
+    # Создание маппинга id2label и label2id из категорий датасета
+    id2label = {idx: cat['name'] for idx, cat in enumerate(dataset.categories)}
+    label2id = {v: k for k, v in id2label.items()}
+
+    # Обновление конфигурации модели
+    model.config.id2label = id2label
+    model.config.label2id = label2id
     model.config.num_labels = num_labels
+
+    print("Проверка маппинга id2label:")
+    for idx, label in id2label.items():
+        print(f"{idx}: {label}")
 
     # Переинициализация слоёв class_embed внутри model.decoder и model
     def reinitialize_class_embed(module):
