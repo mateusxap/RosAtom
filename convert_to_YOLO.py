@@ -31,7 +31,8 @@ def json_to_yolo(json_data, output_path, image_name):
         "header": 8,
         "footer": 9,
         "footnote": 10,
-        "formula": 11
+        "formula": 11,
+        "graph": 12
     }
 
     yolo_annotations = []
@@ -75,7 +76,7 @@ def process_json_files(input_directory, output_directory, image_directory):
     classes = [
         "title", "paragraph", "table", "picture", "table_signature", 
         "picture_signature", "numbered_list", "marked_list", "header", 
-        "footer", "footnote", "formula"
+        "footer", "footnote", "formula", "graph"
     ]
 
     # Разделение данных на обучающие и валидационные (80% / 20%)
