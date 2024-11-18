@@ -74,9 +74,9 @@ def main():
     # Разморозка параметров головы
     for _, param in model.model.model[-1].named_parameters():       
         param.requires_grad = True
- 
+
     print("\nПараметры для обучения:")
-    for name, _ in model.named_parameters():
+    for name, param in model.named_parameters():
         if param.requires_grad:
             print(name)
 
@@ -100,7 +100,7 @@ def main():
     # Перемещение модели на устройство
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
-    model.train(data='dataset/dataset.yaml', freeze=22) #epochs=1)
+    model.train(data='dataset/dataset.yaml', freeze=23) #epochs=1)
     #dataset=CustomYoloDataset)
 
 if __name__ == "__main__":
