@@ -195,7 +195,7 @@ def extract_annotations_from_pdf(pdf_path, output_dir='json'):
                 figure_signature_match = re.match(r'^\s*(рис\.?|рисунок)\s*\d+', text.lower())
                 if figure_signature_match:
                     if current_title is not None:
-                        # Не добавляем параграф, т.к. он не обрабатывается здесь
+                        annotations['title'].append(current_title)
                         current_title = None
                     # Инициализируем объединенный бокс
                     combined_coords = coords_transformed.copy()
@@ -231,7 +231,7 @@ def extract_annotations_from_pdf(pdf_path, output_dir='json'):
                 table_signature_match = re.match(r'^\s*(табл\.?|таблица)\s*\d+', text.lower())
                 if table_signature_match:
                     if current_title is not None:
-                        # Не добавляем параграф, т.к. он не обрабатывается здесь
+                        annotations['title'].append(current_title)
                         current_title = None
                     # Инициализируем объединенный бокс
                     combined_coords = coords_transformed.copy()
@@ -267,7 +267,7 @@ def extract_annotations_from_pdf(pdf_path, output_dir='json'):
                 formula_match = re.match(r'^\s*формула', text.lower())
                 if formula_match or (is_centered_text(text_line, page_width) and not any(c.isalnum() for c in text)):
                     if current_title is not None:
-                        # Не добавляем параграф, т.к. он не обрабатывается здесь
+                        annotations['title'].append(current_title)
                         current_title = None
                     # Формулы будут обработаны PyMuPDF, поэтому здесь пропускаем
                     idx += 1

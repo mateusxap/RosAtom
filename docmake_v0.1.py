@@ -135,7 +135,7 @@ def add_image_to_document(document, image_path, max_height_px=500, base_font_siz
 
     return paragraph
 
-def add_equation_to_docx(doc, equation_str, caption=True):
+def add_equation_to_docx(doc, equation_str, size_img, caption=True ):
     equation_image_path = generate_equation_image(equation_str)
     try:
         if caption:
@@ -148,8 +148,25 @@ def add_equation_to_docx(doc, equation_str, caption=True):
             run.font.size = Pt(1)
             run.font.color.rgb = RGBColor(255, 255, 255)  # Белый цвет
 
-            # Добавляем изображение формулы
-            run.add_picture(equation_image_path)
+            # Определяем случайный размер
+
+            img = Image.open(equation_image_path)
+            width, height = img.size
+
+            if size_img == "normal":
+                width *= 0.75
+                height *= 0.75
+            if size_img == "small":
+                width *= 0.55
+                height *= 0.55
+            elif size_img == "smallest":
+                width *= 0.35
+                height *= 0.35
+
+            # Добавляем изображение формулы с выбранным размером
+            run.add_picture(equation_image_path, width=Inches(width/96), height=Inches(height/96)) # Перевод из px в inches
+
+
 
             # Устанавливаем выравнивание параграфа
             paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -160,6 +177,7 @@ def add_equation_to_docx(doc, equation_str, caption=True):
 
     except Exception as e:
         print(f"Ошибка при добавлении формулы: {e}")
+
 
 def add_footnote(paragraph, footnote_text, footnote_num, footnotes, base_font_size=12):
     """
@@ -351,7 +369,6 @@ for doc_num in range(num_documents):
     base_font_size = random.randint(10, 12)  # Вы можете изменить диапазон по необходимости
     heading_size = random.randint(base_font_size + 2, base_font_size + 6)  # Минимум на 2 больше
 
-    # Инициализация списка сносок
     footnotes = []
     footnote_num = 1  # Начальный номер сноски
 
@@ -414,31 +431,39 @@ for doc_num in range(num_documents):
         run.font.size = Pt(heading_size)
         heading.alignment = WD_ALIGN_PARAGRAPH.CENTER if random.choice([True, False]) else WD_ALIGN_PARAGRAPH.LEFT
 
-        # Добавляем абзац текста с возможными сносками
-        paragraph = document.add_paragraph(fake.text(max_nb_chars=random.randint(1000, 1500)))
-        paragraph_format = paragraph.paragraph_format
-        if random.choice([True, False]):
-            paragraph_format.first_line_indent = Cm(1)
-        paragraph_format.alignment = random.choice([
-            WD_ALIGN_PARAGRAPH.LEFT,
-            WD_ALIGN_PARAGRAPH.CENTER,
-            WD_ALIGN_PARAGRAPH.RIGHT,
-            WD_ALIGN_PARAGRAPH.JUSTIFY
-        ])
+        # Определяем функции для добавления различных элементов
+        def add_text_paragraph():
+            # Инициализация списка сносок
+            global footnotes
+            global footnote_num  # Начальный номер сноски
+            # Добавляем абзац текста с возможными сносками
+            paragraph = document.add_paragraph(fake.text(max_nb_chars=random.randint(1000, 1500)))
+            paragraph_format = paragraph.paragraph_format
+            if random.choice([True, False]):
+                paragraph_format.first_line_indent = Cm(1)
+            paragraph_format.alignment = random.choice([
+                WD_ALIGN_PARAGRAPH.LEFT,
+                WD_ALIGN_PARAGRAPH.CENTER,
+                WD_ALIGN_PARAGRAPH.RIGHT,
+                WD_ALIGN_PARAGRAPH.JUSTIFY
+            ])
 
-        # Устанавливаем единый размер шрифта для всего абзаца
-        for run in paragraph.runs:
-            run.font.size = Pt(base_font_size)
-            run.font.name = 'Times New Roman'
+            # Устанавливаем единый размер шрифта для всего абзаца
+            for run in paragraph.runs:
+                run.font.size = Pt(base_font_size)
+                run.font.name = 'Times New Roman'
 
-            # Случайно добавляем сноску
-            if random.choice([False, False, True, False, False]):
-                footnote_text = fake.sentence(nb_words=5)
-                add_footnote(paragraph, footnote_text, footnote_num, footnotes, base_font_size=base_font_size)
-                footnote_num += 1
+                # Случайно добавляем сноску
+                if random.choice([False, False, True, False, False]):
+                    footnote_text = fake.sentence(nb_words=5)
+                    add_footnote(paragraph, footnote_text, footnote_num, footnotes, base_font_size=base_font_size)
+                    footnote_num += 1
 
-        # Рисуем таблицы только в таком случае, если нет колонок
-        if not use_columns:
+
+        def add_table():
+            # Рисуем таблицы только в таком случае, если нет колонок
+            if use_columns:
+                return
             table_sign_up = random.choice([True, False])
             if table_sign_up:
                 # Добавляем подпись к таблице
@@ -573,117 +598,120 @@ for doc_num in range(num_documents):
                 run.font.size = Pt(base_font_size)
                 caption_paragraph.paragraph_format.keep_with_next = True
 
-        # Добавляем изображение или график с подписью и меткой перед ним если не используем несколько столбцов
-        if not use_columns:
+        def add_image_or_graph():
+            if use_columns:
+                return
             add_graph = random.choice([True, False])
             if add_graph:
                 # Добавляем график
                 add_plot_to_docx(document, base_font_size=base_font_size)
 
-        add_image = random.choice([True, False])
-        if add_image:
-            # Добавляем изображение
-            image_files = os.listdir(images_folder) if os.path.exists(images_folder) else []
-            if image_files:
-                image_path = os.path.join(images_folder, random.choice(image_files))
-                try:
-                    # Добавляем метку с символом '&' перед изображением
-                    label_paragraph = document.add_paragraph("&")
-                    label_paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                    run = label_paragraph.runs[0]
-                    run.font.size = Pt(base_font_size)
-                    run.font.color.rgb = RGBColor(255, 255, 255)  # Белый цвет шрифта
 
-                    # Устанавливаем свойства форматирования для метки
-                    label_paragraph.paragraph_format.keep_with_next = True
-                    label_paragraph.paragraph_format.keep_together = True
-
-                    # Добавляем изображение с ограничением по высоте
-                    image_paragraph = add_image_to_document(document, image_path, max_height_px=500, base_font_size=base_font_size)
-
-                    # Устанавливаем свойства форматирования для параграфа с изображением
-                    image_paragraph.paragraph_format.keep_together = True
-                    image_paragraph.paragraph_format.keep_with_next = True
-
-                    # Добавляем подпись к изображению
-                    caption_type = random.choice(["Рис.", "Рисунок", "Рис. №", "Рисунок №",])
-                    caption_text = f"{caption_type} {random.randint(1, 100)} — {fake.sentence(nb_words=random.randint(3, 7))}"
-                    caption_paragraph = document.add_paragraph(caption_text)
-                    caption_paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                    caption_paragraph.paragraph_format.keep_with_next = True
-                    # Устанавливаем размер шрифта для подписи
-                    for run in caption_paragraph.runs:
+            add_image = random.choice([True, False])
+            if add_image:
+                # Добавляем изображение
+                image_files = os.listdir(images_folder) if os.path.exists(images_folder) else []
+                if image_files:
+                    image_path = os.path.join(images_folder, random.choice(image_files))
+                    try:
+                        # Добавляем метку с символом '&' перед изображением
+                        label_paragraph = document.add_paragraph("&")
+                        label_paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                        run = label_paragraph.runs[0]
                         run.font.size = Pt(base_font_size)
+                        run.font.color.rgb = RGBColor(255, 255, 255)  # Белый цвет шрифта
 
-                except Exception as e:
-                    print(f"Ошибка при добавлении изображения: {e}")
+                        # Устанавливаем свойства форматирования для метки
+                        label_paragraph.paragraph_format.keep_with_next = True
+                        label_paragraph.paragraph_format.keep_together = True
 
-        # Добавляем нумерованный список
-        # Создаём список параграфов для отслеживания
-        numbered_paragraphs = []
+                        # Добавляем изображение с ограничением по высоте
+                        image_paragraph = add_image_to_document(document, image_path, max_height_px=500, base_font_size=base_font_size)
 
-        for _ in range(random.randint(3, 7)):
-            list_item = fake.sentence(nb_words=random.randint(5, 15))
-            paragraph = document.add_paragraph(list_item, style='List Number')
-            numbered_paragraphs.append(paragraph)
-            paragraph_format = paragraph.paragraph_format
-            paragraph_format.left_indent = Cm(1)
-            paragraph_format.line_spacing = 1.0  # Фиксированное межстрочное расстояние
 
-            run = paragraph.runs[0]
-            run.font.size = Pt(base_font_size)
-            run.font.name = 'Times New Roman'
+                        # Устанавливаем свойства форматирования для параграфа с изображением
+                        image_paragraph.paragraph_format.keep_together = True
+                        image_paragraph.paragraph_format.keep_with_next = True
 
-        # Устанавливаем размер шрифта для номеров списка
-        set_numbering_font_size(document, base_font_size=base_font_size)
+                        # Добавляем подпись к изображению
+                        caption_type = random.choice(["Рис.", "Рисунок", "Рис. №", "Рисунок №",])
+                        caption_text = f"{caption_type} {random.randint(1, 100)} — {fake.sentence(nb_words=random.randint(3, 7))}"
+                        caption_paragraph = document.add_paragraph(caption_text)
+                        caption_paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                        caption_paragraph.paragraph_format.keep_with_next = True
+                        # Устанавливаем размер шрифта для подписи
+                        for run in caption_paragraph.runs:
+                            run.font.size = Pt(base_font_size)
+                    except Exception as e:
+                        print(f"Ошибка при добавлении изображения: {e}")
 
-        # Добавляем маркированный список
-        # Создаём список параграфов для отслеживания
-        bulleted_paragraphs = []
+        def add_numbered_list():
+            numbered_paragraphs = []
 
-        for _ in range(random.randint(3, 7)):
-            list_item = fake.sentence(nb_words=random.randint(5, 15))
-            paragraph = document.add_paragraph(list_item, style='List Bullet')
-            bulleted_paragraphs.append(paragraph)
-            paragraph_format = paragraph.paragraph_format
-            paragraph_format.left_indent = Cm(1)
-            paragraph_format.line_spacing = 1.0  # Фиксированное межстрочное расстояние
+            for _ in range(random.randint(3, 7)):
+                list_item = fake.sentence(nb_words=random.randint(5, 15))
+                paragraph = document.add_paragraph(list_item, style='List Number')
+                numbered_paragraphs.append(paragraph)
+                paragraph_format = paragraph.paragraph_format
+                paragraph_format.left_indent = Cm(1)
+                paragraph_format.line_spacing = 1.0  # Фиксированное межстрочное расстояние
 
-            run = paragraph.runs[0]
-            run.font.size = Pt(base_font_size)
-            run.font.name = 'Times New Roman'
+                run = paragraph.runs[0]
+                run.font.size = Pt(base_font_size)
+                run.font.name = 'Times New Roman'
 
-        # Устанавливаем размер шрифта для маркеров списка
-        set_numbering_font_size(document, base_font_size=base_font_size)
+            # Устанавливаем размер шрифта для номеров списка
+            set_numbering_font_size(document, base_font_size=base_font_size)
 
-        # Добавляем абзац текста с возможными сносками
-        paragraph = document.add_paragraph(fake.text(max_nb_chars=random.randint(500, 1000)))
-        paragraph_format = paragraph.paragraph_format
-        if random.choice([True, False]):
-            paragraph_format.first_line_indent = Cm(1)
-        paragraph_format.alignment = random.choice([
-            WD_ALIGN_PARAGRAPH.LEFT,
-            WD_ALIGN_PARAGRAPH.CENTER,
-            WD_ALIGN_PARAGRAPH.RIGHT,
-            WD_ALIGN_PARAGRAPH.JUSTIFY
-        ])
+        def add_bulleted_list():
+            bulleted_paragraphs = []
 
-        # Устанавливаем единый размер шрифта для всего абзаца
-        for run in paragraph.runs:
-            run.font.size = Pt(base_font_size)
-            run.font.name = 'Times New Roman'
+            for _ in range(random.randint(3, 7)):
+                list_item = fake.sentence(nb_words=random.randint(5, 15))
+                paragraph = document.add_paragraph(list_item, style='List Bullet')
+                bulleted_paragraphs.append(paragraph)
+                paragraph_format = paragraph.paragraph_format
+                paragraph_format.left_indent = Cm(1)
+                paragraph_format.line_spacing = 1.0  # Фиксированное межстрочное расстояние
 
-            # Случайно добавляем сноску
-            if random.choice([False, False, True, False, False]):
-                footnote_text = fake.sentence(nb_words=5)
-                add_footnote(paragraph, footnote_text, footnote_num, footnotes, base_font_size=base_font_size)
-                footnote_num += 1
+                run = paragraph.runs[0]
+                run.font.size = Pt(base_font_size)
+                run.font.name = 'Times New Roman'
 
-        # Добавляем формулу с возможной подписью
-        if random.choice([True, False]):
-            equation_str = random.choice(FORMULAS)
-            add_equation_to_docx(document, equation_str, caption=True)
-            
+            # Устанавливаем размер шрифта для маркеров списка
+            set_numbering_font_size(document, base_font_size=base_font_size)
+
+        def add_formula():
+            if random.choice([True, False]):
+                size_choice = random.choice(["normal", "small", "smallest"])
+                num_equations = random.randint(1, 3)  # Случайное число формул (1-3)
+                for i in range(num_equations):
+                    equation_str = random.choice(FORMULAS)
+                    add_equation_to_docx(document, equation_str, caption=True, size_img=size_choice)
+
+        # Список функций для добавления элементов
+        elements = [add_text_paragraph, add_numbered_list, add_bulleted_list, add_text_paragraph, add_formula]
+
+        if not use_columns:
+            elements.append(add_table)
+            elements.append(add_image_or_graph)
+
+        # Перемешиваем элементы
+        random.shuffle(elements)
+        i = 1
+        while (elements[0] ==  add_bulleted_list or elements[0] == add_numbered_list):
+            tmp = elements[0]
+            elements[0] = elements[i]
+            elements[i] = tmp
+            i += 1
+            # Выполняем функции в случайном порядке
+        for element in elements:
+            element()
+
+        # # Обновляем footnote_num
+        # footnote_num = footnote_num[0]
+
+
     # Добавляем сноски в конец документа
     add_footnotes_section(document, footnotes, base_font_size=base_font_size)
 
