@@ -162,7 +162,7 @@ def add_equation_to_docx(doc, equation_str, caption=True):
     except Exception as e:
         print(f"Ошибка при добавлении формулы: {e}")
 
-def add_footnote(paragraph, footnote_text, footnote_num, footnotes):
+def add_footnote(paragraph, footnote_text, footnote_num, footnotes, font_size):
     """
     Добавляет сноску в абзац и сохраняет её текст.
 
@@ -170,10 +170,11 @@ def add_footnote(paragraph, footnote_text, footnote_num, footnotes):
     :param footnote_text: Текст сноски.
     :param footnote_num: Номер сноски.
     :param footnotes: Список сносок.
+    :param font_size: Размер шрифта.
     """
-    footnote_mark = paragraph.add_run(f'[{footnote_num}]')
-    footnote_mark.font.superscript = True
-    footnotes.append((footnote_num, footnote_text))
+    footnote_mark = paragraph.add_run(f'[{footnote_num}] ')
+    footnote_mark.font.size = font_size
+    footnotes.append((footnote_num, footnote_text))  
 
 def add_footnotes_section(document, footnotes):
     """
@@ -338,6 +339,7 @@ for doc_num in range(num_documents):
             document.add_section(WD_SECTION.NEW_PAGE)
 
         current_section = document.sections[-1]
+        
         # Случайное изменение ориентации страницы
         if random.randint(0, 1):
             new_width, new_height = current_section.page_height, current_section.page_width
@@ -384,10 +386,14 @@ for doc_num in range(num_documents):
         run.font.size = Pt(heading_size)
         heading.alignment = WD_ALIGN_PARAGRAPH.CENTER if random.choice([True, False]) else WD_ALIGN_PARAGRAPH.LEFT
 
+         # Выбираем межстрочное расстояние для всего раздела
+        section_line_spacing = random.uniform(1.0, 1.2)
+
         # Добавляем абзац текста с возможными сносками
         paragraph = document.add_paragraph(fake.text(max_nb_chars=random.randint(500, 1000)))
         paragraph_format = paragraph.paragraph_format
         paragraph_format.first_line_indent = Cm(1) if random.choice([True, False]) else None
+        paragraph_format.line_spacing = section_line_spacing
         paragraph_format.alignment = random.choice([
             WD_ALIGN_PARAGRAPH.LEFT,
             WD_ALIGN_PARAGRAPH.CENTER,
@@ -411,7 +417,7 @@ for doc_num in range(num_documents):
             # Случайно добавляем сноску
             if random.choice([False, False, True, False, False]):
                 footnote_text = fake.sentence(nb_words=5)
-                add_footnote(paragraph, footnote_text, footnote_num, footnotes)
+                add_footnote(paragraph, footnote_text, footnote_num, footnotes, font_size)
                 footnote_num += 1
 
         # Рисуем таблицы только в таком случае, если нет колонок
@@ -552,7 +558,6 @@ for doc_num in range(num_documents):
         # Добавляем нумерованный список
         list_font_size = random.randint(11, 16)
         list_font_size_pt = Pt(list_font_size)
-        list_line_spacing = random.uniform(1.0, 1.5)
 
         # Создаём список параграфов для отслеживания
         numbered_paragraphs = []
@@ -563,7 +568,7 @@ for doc_num in range(num_documents):
             numbered_paragraphs.append(paragraph)
             paragraph_format = paragraph.paragraph_format
             paragraph_format.left_indent = Cm(1)
-            paragraph_format.line_spacing = list_line_spacing
+            paragraph_format.line_spacing = section_line_spacing
             run = paragraph.runs[0]
             run.font.size = list_font_size_pt
             run.font.name = 'Times New Roman'
@@ -574,7 +579,6 @@ for doc_num in range(num_documents):
         # Добавляем маркированный список
         bullet_list_font_size = random.randint(11, 16)
         bullet_list_font_size_pt = Pt(bullet_list_font_size)
-        bullet_list_line_spacing = random.uniform(1.0, 1.5)
 
         # Создаём список параграфов для отслеживания
         bulleted_paragraphs = []
@@ -585,7 +589,7 @@ for doc_num in range(num_documents):
             bulleted_paragraphs.append(paragraph)
             paragraph_format = paragraph.paragraph_format
             paragraph_format.left_indent = Cm(1)
-            paragraph_format.line_spacing = bullet_list_line_spacing
+            paragraph_format.line_spacing = section_line_spacing
             run = paragraph.runs[0]
             run.font.size = bullet_list_font_size_pt
             run.font.name = 'Times New Roman'
@@ -597,6 +601,7 @@ for doc_num in range(num_documents):
         paragraph = document.add_paragraph(fake.text(max_nb_chars=random.randint(500, 1000)))
         paragraph_format = paragraph.paragraph_format
         paragraph_format.first_line_indent = Cm(1) if random.choice([True, False]) else None
+        paragraph_format.line_spacing = section_line_spacing
         paragraph_format.alignment = random.choice([
             WD_ALIGN_PARAGRAPH.LEFT,
             WD_ALIGN_PARAGRAPH.CENTER,
@@ -620,7 +625,7 @@ for doc_num in range(num_documents):
             # Случайно добавляем сноску
             if random.choice([False, False, True, False, False]):
                 footnote_text = fake.sentence(nb_words=5)
-                add_footnote(paragraph, footnote_text, footnote_num, footnotes)
+                add_footnote(paragraph, footnote_text, footnote_num, footnotes, font_size)
                 footnote_num += 1
 
         # Добавляем формулу с возможной подписью
