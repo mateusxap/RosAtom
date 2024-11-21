@@ -1,0 +1,71 @@
+{
+    "image_height": 2550,
+    "image_width": 3300,
+    "image_path": "input/images/document_0_page_4.png",
+    "title": [],
+    "paragraph": [
+        [
+            376,
+            993,
+            2932,
+            1410
+        ]
+    ],
+    "table": [],
+    "picture": [],
+    "table_signature": [],
+    "picture_signature": [],
+    "numbered_list": [
+        [
+            418,
+            301,
+            1205,
+            355
+        ]
+    ],
+    "marked_list": [
+        [
+            419,
+            420,
+            2784,
+            954
+        ]
+    ],
+    "header": [],
+    "footer": [
+        [
+            375,
+            2354,
+            917,
+            2400
+        ]
+    ],
+    "footnote": [
+        [
+            1821,
+            1142,
+            1873,
+            1171
+        ],
+        [
+            1908,
+            1310,
+            1961,
+            1338
+        ],
+        [
+            2017,
+            1204,
+            2070,
+            1233
+        ],
+        [
+            1267,
+            1372,
+            1319,
+            1401
+        ]
+    ],
+    "formula": [],
+    "graph": []
+}
