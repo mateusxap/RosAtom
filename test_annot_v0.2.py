@@ -424,7 +424,8 @@ def extract_annotations_with_pymupdf(pdf_path, output_dir='json'):
                             'text': text,
                             'bbox': coords_transformed,
                             'char_count': char_count,  # Добавлено: количество символов
-                            'font_size': font_size # Добавлено: размер шрифта
+                            'font_size': font_size, # Добавлено: размер шрифта
+                            'contains_list_stop_sym': '@' in text # Добавлено: наличие символа-признака конца списка
                         })
                         # Проверяем на наличие символов "~", "&" и "$"
                         if '~' in text:
@@ -506,7 +507,8 @@ def extract_annotations_with_pymupdf(pdf_path, output_dir='json'):
 
         # Цикл по текстовым элементам страницы     
         while idx < len(text_elements):                
-            text = text_elements[idx]['text']            
+            text = text_elements[idx]['text']
+            containts_list_stop_sym = text_elements[idx]['contains_list_stop_sym']
             if text == ' ':
                 idx += 1
                 if idx == len(text_elements):
@@ -521,130 +523,88 @@ def extract_annotations_with_pymupdf(pdf_path, output_dir='json'):
 
             # Обработка нумерованных списков 
             numbered_match = re.match(r'^\s*\d+[\.\)]\s*', text)
-            if numbered_match and not in_numbered_list:
+            if numbered_match and not in_numbered_list:                
                 in_numbered_list = True
                 if in_bulleted_list:
                     json_data['marked_list'].append([x_list_begin, y_list_begin, x_list_end, y_list_end])
                     in_bulleted_list = False
-                idx += 2
+                if not any(char.isalpha() for char in text):
+                    idx += 2
                 x_list_begin, y_list_begin, _, y_list_end = coords_transformed
                 x_list_end = text_elements[idx]['bbox'][2]
-                x_list_pred = coords_transformed[0]
-                y_list_pred = coords_transformed[3]
-                char_size_pred = round(text_elements[idx]['font_size'])
                 idx += 1
                 continue
 
             # Продолжение нумерованного списка
             if in_numbered_list:
-                x_list, y_list0, _, y_list1 = coords_transformed                
-                is_num = re.match(r'^\s*\d+[\.\)]\s*', text) is not None
-                is_let = text[0].isalpha()
-                char_size = -1
-
-                if is_num:                    
-                    idx += 2
-                    char_size = round(text_elements[idx]['font_size'])
-                    coords_transformed = text_elements[idx]['bbox']
-                    text = text_elements[idx]['text']
-                else:
-                    char_size = round(text_elements[idx]['font_size'])                
-                if indent == -1 and is_let:
-                    indent = x_list - x_list_pred
-                x_dif = x_list - x_list_pred
-
-                if ((is_num and abs(x_list - x_list_pred) < 0.001) or (is_let and (abs(x_dif - 75) < 0.001 or x_dif > 500))) and (
-                         y_list0 - y_list_pred <= 65) and (char_size == char_size_pred):
-                    if y_list_begin > y_list0:
+                if not containts_list_stop_sym:
+                    if y_list_end - coords_transformed[1] > 500:
                         json_data['numbered_list'].append(
                             [x_list_begin, y_list_begin, x_list_end, y_list_end])
                         x_list_begin = coords_transformed[0]
-                        if not is_num:
-                            x_list_begin -= indent
-                        x_list_pred = x_list_begin
                         y_list_begin = coords_transformed[1]
-
-                    if coords_transformed[2] > x_list_end: 
-                         x_list_end = coords_transformed[2]
+                    
+                    if x_list_begin > coords_transformed[0]:
+                        x_list_begin = coords_transformed[0]
+                    if x_list_end < coords_transformed[2]:
+                        x_list_end = coords_transformed[2]
                     y_list_end = coords_transformed[3]
-
+                    
                     idx += 1
                     if idx == len(text_elements):
                         json_data['numbered_list'].append(
                             [x_list_begin, y_list_begin, x_list_end, y_list_end])
-                    y_list_pred = y_list1
+                    if not any(char.isalpha() for char in text):
+                        idx += 1                    
                     continue
-                else:
-                    if is_num:
-                        idx -= 2
+                else:             
                     json_data['numbered_list'].append(
                         [x_list_begin, y_list_begin, x_list_end, y_list_end])
                     in_numbered_list = False
-                    indent = -1
+                    idx += 1
                     continue
-            
+
             # Обработка маркированных списков 
             bulleted_match = re.match(r'^\s*[' + re.escape(bullet_chars) + r']\s*', text)
             if bulleted_match and not in_bulleted_list:
                 in_bulleted_list = True
                 in_numbered_list = False
-                idx += 2
+                if not any(char.isalpha() for char in text):
+                    idx += 2
                 x_list_begin, y_list_begin, _, y_list_end = coords_transformed
                 x_list_end = text_elements[idx]['bbox'][2]
-                x_list_pred = coords_transformed[0]
-                y_list_pred = coords_transformed[3]
-                char_size_pred = round(text_elements[idx]['font_size'])
                 idx += 1
                 continue
             
             # Продолжение маркированного списка
             if in_bulleted_list:
-                x_list, y_list0, _, y_list1 = coords_transformed                
-                is_bullet = text[0] in bullet_chars
-                is_let = text[0].isalpha()
-                char_size = -1
-
-                if is_bullet:                    
-                    idx += 2
-                    char_size = round(text_elements[idx]['font_size'])
-                    coords_transformed = text_elements[idx]['bbox']
-                    text = text_elements[idx]['text']
-                else:
-                    char_size = round(text_elements[idx]['font_size'])
-                if indent == -1 and is_let:
-                    indent = x_list - x_list_pred
-                x_dif = x_list - x_list_pred
-
-                if ((is_bullet and abs(x_list - x_list_pred) < 0.001) or (is_let and (abs(x_dif - 75) < 0.001 or x_dif > 500))) and (
-                         y_list0 - y_list_pred <= 65) and (char_size == char_size_pred):
-                    if y_list_begin > y_list0:
+                if not containts_list_stop_sym:
+                    if y_list_end - coords_transformed[1] > 500:
                         json_data['marked_list'].append(
                             [x_list_begin, y_list_begin, x_list_end, y_list_end])
                         x_list_begin = coords_transformed[0]
-                        if not is_bullet:
-                            x_list_begin -= indent
-                        x_list_pred = x_list_begin
                         y_list_begin = coords_transformed[1]
-
-                    if coords_transformed[2] > x_list_end: 
-                         x_list_end = coords_transformed[2]
+                    
+                    if x_list_begin > coords_transformed[0]:
+                        x_list_begin = coords_transformed[0]
+                    if x_list_end < coords_transformed[2]:
+                        x_list_end = coords_transformed[2]
                     y_list_end = coords_transformed[3]
-
+                    
                     idx += 1
                     if idx == len(text_elements):
                         json_data['marked_list'].append(
                             [x_list_begin, y_list_begin, x_list_end, y_list_end])
-                    y_list_pred = y_list1
+                    if not any(char.isalpha() for char in text):
+                        idx += 1
                     continue
-                else:
-                    if is_bullet:
-                        idx -= 2
+                else:                  
                     json_data['marked_list'].append(
                         [x_list_begin, y_list_begin, x_list_end, y_list_end])
                     in_bulleted_list = False
-                    indent = -1
+                    idx += 1
                     continue
-
+            
             idx += 1
 
         # Обработка параграфов

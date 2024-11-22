@@ -561,13 +561,46 @@ for doc_num in range(num_documents):
 
         # Создаём список параграфов для отслеживания
         numbered_paragraphs = []
+        fully_indented = random.choice([True, False])
+        # Определяем убирать ли отступы до и после списка
+        remove_bef_and_aft_spacing = random.choice([True, False])
+        num_of_items = random.randint(3, 7)
+        indent = 1
+        if use_columns:
+            if columns == 2:
+                indent = 0.75
+            elif columns == 3:
+                indent = 0.5
+        # Определяем будет ли список в целом иметь пункты с большим объемом текста
+        bigger_items = random.choice([True, False, False])
 
-        for _ in range(random.randint(3, 7)):
-            list_item = fake.sentence(nb_words=random.randint(5, 15))
-            paragraph = document.add_paragraph(list_item, style='List Number')
+        for item in range(num_of_items):
+            list_item = fake.sentence(nb_words=(random.randint(30, 55) if bigger_items else random.randint(5, 20)))
+            if fully_indented:
+                paragraph = document.add_paragraph(list_item, style='List Number')
+            else:
+                paragraph = document.add_paragraph(f'{item + 1}. ' + list_item)
             numbered_paragraphs.append(paragraph)
-            paragraph_format = paragraph.paragraph_format
-            paragraph_format.left_indent = Cm(1)
+            paragraph_format = paragraph.paragraph_format          
+            
+            if item == 0 and remove_bef_and_aft_spacing:
+                paragraph_format.space_before = Pt(0)
+
+            if fully_indented:
+                paragraph_format.left_indent = Cm(1)
+            else:
+                paragraph_format.first_line_indent = Cm(indent)               
+                if item != num_of_items - 1:
+                    paragraph_format.space_after = Pt(0)
+
+            if item == num_of_items - 1:
+                # Добавляем в конец списка невидимый символ @
+                run = paragraph.add_run('@')
+                run.font.size = Pt(1)
+                run.font.color.rgb = RGBColor(255, 255, 255)  # Белый цвет          
+                if remove_bef_and_aft_spacing:
+                    paragraph_format.space_after = Pt(0)
+            
             paragraph_format.line_spacing = section_line_spacing
             run = paragraph.runs[0]
             run.font.size = list_font_size_pt
@@ -582,13 +615,39 @@ for doc_num in range(num_documents):
 
         # Создаём список параграфов для отслеживания
         bulleted_paragraphs = []
-
-        for _ in range(random.randint(3, 7)):
-            list_item = fake.sentence(nb_words=random.randint(5, 15))
-            paragraph = document.add_paragraph(list_item, style='List Bullet')
+        fully_indented = random.choice([True, False])
+        remove_bef_and_aft_spacing = random.choice([True, False])
+        num_of_items = random.randint(3, 7)
+        # Определяем будет ли список в целом иметь пункты с большим объемом текста
+        bigger_items = random.choice([True, False, False])
+        
+        for item in range(num_of_items):
+            list_item = fake.sentence(nb_words=(random.randint(30, 55) if bigger_items else random.randint(5, 20)))
+            if fully_indented:
+                paragraph = document.add_paragraph(list_item, style='List Bullet')
+            else:
+                paragraph = document.add_paragraph('• ' + list_item)
             bulleted_paragraphs.append(paragraph)
             paragraph_format = paragraph.paragraph_format
-            paragraph_format.left_indent = Cm(1)
+            
+            if item == 0 and remove_bef_and_aft_spacing:
+                paragraph_format.space_before = Pt(0)
+
+            if fully_indented:
+                paragraph_format.left_indent = Cm(1)
+            else:
+                paragraph_format.first_line_indent = Cm(indent)               
+                if item != num_of_items - 1:
+                    paragraph_format.space_after = Pt(0)
+
+            if item == num_of_items - 1:
+                # Добавляем в конец списка невидимый символ @
+                run = paragraph.add_run('@')
+                run.font.size = Pt(1)
+                run.font.color.rgb = RGBColor(255, 255, 255)  # Белый цвет          
+                if remove_bef_and_aft_spacing:
+                    paragraph_format.space_after = Pt(0)
+
             paragraph_format.line_spacing = section_line_spacing
             run = paragraph.runs[0]
             run.font.size = bullet_list_font_size_pt
