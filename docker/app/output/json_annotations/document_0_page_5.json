@@ -1,0 +1,80 @@
+{
+    "image_height": 2550,
+    "image_width": 3300,
+    "image_path": "input/images/document_0_page_5.png",
+    "title": [
+        [
+            376,
+            377,
+            1436,
+            479
+        ]
+    ],
+    "paragraph": [
+        [
+            386,
+            498,
+            1573,
+            1322
+        ]
+    ],
+    "table": [],
+    "picture": [
+        [
+            523,
+            1420,
+            1428,
+            1679
+        ]
+    ],
+    "table_signature": [],
+    "picture_signature": [
+        [
+            380,
+            1731,
+            1585,
+            1838
+        ]
+    ],
+    "numbered_list": [
+        [
+            415,
+            1891,
+            1474,
+            2123
+        ],
+        [
+            1766,
+            305,
+            2928,
+            964
+        ]
+    ],
+    "marked_list": [
+        [
+            1766,
+            1036,
+            2925,
+            2082
+        ]
+    ],
+    "header": [],
+    "footer": [
+        [
+            375,
+            2354,
+            916,
+            2400
+        ]
+    ],
+    "footnote": [
+        [
+            388,
+            839,
+            441,
+            869
+        ]
+    ],
+    "formula": [],
+    "graph": []
+}
