@@ -192,7 +192,7 @@ def extract_annotations_from_pdf(pdf_path, output_dir='json'):
                                     break            
 
                 # Обработка подписей к рисункам
-                figure_signature_match = re.match(r'^\s*(рис\.?|рисунок)\s*\d+', text.lower())
+                figure_signature_match = re.match(r'^\s*(рис\.?|рисунок)\s*((№|#)\s*)*\d+', text.lower())
                 if figure_signature_match:
                     if current_title is not None:
                         annotations['title'].append(current_title)
@@ -228,7 +228,7 @@ def extract_annotations_from_pdf(pdf_path, output_dir='json'):
                     continue
 
                 # Обработка подписей к таблицам
-                table_signature_match = re.match(r'^\s*(табл\.?|таблица)\s*\d+', text.lower())
+                table_signature_match = re.match(r'^\s*(табл\.?|таблица)\s*((№|#)\s*)*\d+', text.lower())
                 if table_signature_match:
                     if current_title is not None:
                         annotations['title'].append(current_title)
@@ -402,9 +402,9 @@ def extract_annotations_with_pymupdf(pdf_path, output_dir='json'):
         blocks = page_dict["blocks"]
 
         elements = []  # Список для хранения элементов страницы
-        pictures_type = []  # Список для хранения типов аннотаций ("formula", "image", "graph")
-
-        for block in blocks:
+        pictures_type = []  # Список для хранения типов аннотаций ("formula", "image", "graph")       
+        second_mid_sym_in_row = False # Флаг для корректного нахождения изображений, занимающих большую часть ширины страницы
+        for block in blocks:          
             if block['type'] == 0:  # Текстовый блок
                 for line in block['lines']:
                     for span in line['spans']:
@@ -431,7 +431,13 @@ def extract_annotations_with_pymupdf(pdf_path, output_dir='json'):
                         if '~' in text:
                             pictures_type.append('formula')
                         elif '&' in text:
-                            pictures_type.append('image')
+                            if abs(x0 + x1 - page_width) > 1.0:
+                                pictures_type.append('image')
+                                second_mid_sym_in_row = False
+                            else:
+                                if second_mid_sym_in_row:
+                                    pictures_type.append('image')
+                                second_mid_sym_in_row = not second_mid_sym_in_row
                         elif '$' in text:
                             pictures_type.append('graph')
             elif block['type'] == 1:  # Изображение
@@ -625,11 +631,11 @@ def extract_annotations_with_pymupdf(pdf_path, output_dir='json'):
             if not overlaps:
                 filtered_text_elements.append(elem)
 
-        # Исключаем элементы, содержащие только символы " ", "~", "&", "$" из аннотирования как параграф
+        # Исключаем элементы, содержащие только символы " ", "~", "&", "$", "@" из аннотирования как параграф
         paragraph_elements = []
         for elem in filtered_text_elements:
             text_content = elem['text'].strip()
-            if text_content not in ["", "~", "&", "$"]:
+            if text_content not in ["", "~", "&", "$", "@"]:
                 paragraph_elements.append(elem)
 
         # Группируем элементы в столбцы на основе координаты x0

@@ -189,7 +189,7 @@ def add_footnote(paragraph, footnote_text, footnote_num, footnotes, base_font_si
     :param footnotes: Список сносок.
     :param base_font_size: Базовый размер шрифта для сноски.
     """
-    footnote_mark = paragraph.add_run(f'[{footnote_num}] ')
+    footnote_mark = paragraph.add_run(f' [{footnote_num}] ')
     footnote_mark.font.size = Pt(base_font_size)
     footnotes.append((footnote_num, footnote_text))  
 
@@ -326,7 +326,7 @@ def add_plot_to_docx(doc, base_font_size=12):
         paragraph.paragraph_format.keep_with_next = True
 
         # Добавляем подпись к графику
-        caption_type = random.choice(["График", "График №"])
+        caption_type = random.choice(["Рис.", "Рисунок", "Рис. №", "Рисунок №"])
         caption_text = f"{caption_type} {random.randint(1, 100)} — {fake.sentence(nb_words=random.randint(3, 7))}"
         caption_paragraph = doc.add_paragraph(caption_text)
         caption_paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
