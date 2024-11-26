@@ -649,6 +649,7 @@ for doc_num in range(num_documents):
                         print(f"Ошибка при добавлении изображения: {e}")
 
         def add_numbered_list():
+            global footnote_num
             numbered_paragraphs = []
             fully_indented = random.choice([True, False])
             # Определяем убирать ли отступы до и после списка
@@ -664,14 +665,27 @@ for doc_num in range(num_documents):
             bigger_items = random.choice([True, False, False])
             
             for item in range(num_of_items):
-                list_item = fake.sentence(nb_words=(random.randint(30, 55) if bigger_items else random.randint(5, 20)))
+                list_item = fake.sentence(nb_words=(random.randint(30, 55) if bigger_items else random.randint(5, 20)))                
+                if random.choices([True, False], weights=[0.16, 1 - 0.16])[0]:
+                    footnote_text = fake.sentence(nb_words=5)
+                    # Если элемент списка большой, то для него возможно добавление сноски где-то в середине
+                    if bigger_items and random.choice([True, False]):                  
+                        item_len = random.randint(30, 55)
+                        first_part_len = random.randint(10, item_len - 10)
+                        list_item = fake.sentence(nb_words=first_part_len) + f' [{footnote_num}] '
+                        list_item += fake.sentence(nb_words=item_len - first_part_len)                      
+                    else:
+                        list_item += f' [{footnote_num}]'
+                    footnotes.append((footnote_num, footnote_text))
+                    footnote_num += 1
                 if fully_indented:
                     paragraph = document.add_paragraph(list_item, style='List Number')
                 else:
                     paragraph = document.add_paragraph(f'{item + 1}. ' + list_item)
+                
                 numbered_paragraphs.append(paragraph)
                 paragraph_format = paragraph.paragraph_format          
-            
+
                 if item == 0 and remove_bef_and_aft_spacing:
                     paragraph_format.space_before = Pt(0)
 
@@ -699,6 +713,7 @@ for doc_num in range(num_documents):
             set_numbering_font_size(document, base_font_size=base_font_size)
 
         def add_bulleted_list():
+            global footnote_num
             bulleted_paragraphs = []
             fully_indented = random.choice([True, False])
             remove_bef_and_aft_spacing = random.choice([True, False])
@@ -714,13 +729,26 @@ for doc_num in range(num_documents):
 
             for item in range(num_of_items):
                 list_item = fake.sentence(nb_words=(random.randint(30, 55) if bigger_items else random.randint(5, 20)))
+                if random.choices([True, False], weights=[0.16, 1 - 0.16])[0]:
+                    footnote_text = fake.sentence(nb_words=5)
+                    # Если элемент списка большой, то для него возможно добавление сноски где-то в середине
+                    if bigger_items and random.choice([True, False]):                  
+                        item_len = random.randint(30, 55)
+                        first_part_len = random.randint(10, item_len - 10)
+                        list_item = fake.sentence(nb_words=first_part_len) + f' [{footnote_num}] '
+                        list_item += fake.sentence(nb_words=item_len - first_part_len)                      
+                    else:
+                        list_item += f' [{footnote_num}]'
+                    footnotes.append((footnote_num, footnote_text))
+                    footnote_num += 1
                 if fully_indented:
                     paragraph = document.add_paragraph(list_item, style='List Bullet')
                 else:
                     paragraph = document.add_paragraph('• ' + list_item)
+
                 bulleted_paragraphs.append(paragraph)
                 paragraph_format = paragraph.paragraph_format
-            
+
                 if item == 0 and remove_bef_and_aft_spacing:
                     paragraph_format.space_before = Pt(0)
 
