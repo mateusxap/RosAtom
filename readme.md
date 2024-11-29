@@ -60,10 +60,10 @@ graph: Графики.
 ### Результаты обработки 2404.19737v1.pdf
 [Ссылка](https://disk.yandex.ru/d/HzpGsYLyQjftBQ)
 ### Результаты обработки датасета 1 группы Ивана Максимова
-[Ссылка](https://disk.yandex.ru/d/gkDQ5gwRvzRi1w)
+[Ссылка](https://disk.yandex.ru/d/FAY9ECMczFVZmA)
 ### Результаты обработки датасета 2 группы Ивана Максимова
-[]()
+[Ссылка](https://drive.google.com/file/d/1giB-LZt2jJKoS5v1JQ6sUUenAu4jY0Qb/view?usp=sharing)
 ### Результаты обработки датасета 2 группы Тимура Аслямова
-[]()
+[Ссылка](https://disk.yandex.ru/d/5Ey_vKY9tLaqcQ)
 ### Результаты обработки датасета 3 группы Тимура Аслямова
-[]()
+[Ссылка](https://drive.google.com/file/d/15FxnNNshByzTm_tG5KwVJwNLJoMv-bd8/view?usp=sharing)
